@@ -1,0 +1,42 @@
+name: LibreStream
+options:
+  bundleIdPrefix: org.librestream
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGN_IDENTITY: ""
+targets:
+  LibreStream:
+    type: application
+    platform: iOS
+    sources: [LibreStream]
+    info:
+      path: LibreStream/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: LibreStream
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UIBackgroundModes: [audio]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        LSCatalogURL: https://example.github.io/librestream-hub/catalog.json
+  LibreStreamTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [LibreStreamTests]
+    dependencies:
+      - target: LibreStream
+schemes:
+  LibreStream:
+    build:
+      targets:
+        LibreStream: all
+    test:
+      targets: [LibreStreamTests]
