@@ -1,0 +1,49 @@
+# --- macOS / Xcode ---
+.DS_Store
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+DerivedData/
+build/
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.xcarchive
+# Proyecto Xcode generado por XcodeGen (la fuente de verdad es project.yml)
+ios/*.xcodeproj/
+.swiftpm/
+.build/
+Packages/
+Pods/
+Carthage/Build/
+
+# --- Firmas / secretos (NUNCA versionar) ---
+*.p12
+*.mobileprovision
+*.cer
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# --- Node.js ---
+node_modules/
+npm-debug.log*
+dist/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# --- GitHub Actions locales (act) ---
+.secrets
+.actrc
+
+# --- Editores ---
+.vscode/
+.idea/
+*.swp
