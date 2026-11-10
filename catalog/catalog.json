@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-11-10T00:00:00Z",
+  "items": [
+    {
+      "id": "4b498eb814fcbc96514e49ad2f236f1e",
+      "kind": "track",
+      "title": "Monkeys Spinning Monkeys",
+      "artist": "Kevin MacLeod",
+      "version": "original",
+      "durationSec": 125,
+      "license": { "spdx": "CC-BY-4.0", "attribution": "Kevin MacLeod (incompetech.com)" },
+      "sources": [
+        { "provider": "archive_org", "url": "https://archive.org/download/kevin-macleod-monkeys-spinning-monkeys/Monkeys%20Spinning%20Monkeys.mp3", "mime": "audio/mpeg", "durationSec": 125 }
+      ]
+    },
+    {
+      "id": "90e2b172bc3260da017a02e21a19f791",
+      "kind": "video",
+      "title": "Big Buck Bunny",
+      "artist": "Blender Foundation",
+      "durationSec": 596,
+      "license": { "spdx": "CC-BY-3.0", "attribution": "(c) Blender Foundation | peach.blender.org" },
+      "sources": [
+        { "provider": "direct", "url": "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4", "mime": "video/mp4", "durationSec": 596 }
+      ]
+    }
+  ]
+}
