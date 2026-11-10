@@ -2,7 +2,7 @@
 
 Centro de entretenimiento de código abierto, gratuito y sin suscripciones (música + vídeo).
 El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al instalar
-(Sideloadly / AltStore / TrollStore).
+(Sideloadly / AltStore / TrollStore). En Windows se distribuye como `.zip` portable (x64 y ARM64), sin instalador ni firma.
 
 > **Fuentes de contenido:** el catálogo solo debe apuntar a contenido que se tenga derecho a
 > redistribuir (dominio público, Creative Commons, Internet Archive, Jamendo, Free Music Archive,
@@ -18,6 +18,7 @@ El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al 
 | 2 | Reproducción | `AudioPlayerManager` (AVPlayer, segundo plano, pantalla de bloqueo) |
 | 3 | UI | SwiftUI: biblioteca, búsqueda, cola, mini‑reproductor, vídeo (AVPlayerViewController) |
 | 4 | Distribución | `build-ipa.yml` → `.ipa` sin firmar en GitHub Releases por tag `v*` |
+| 5 | Windows | Núcleo .NET 8 (mismos 21 casos), app WinUI 3 con controles multimedia del sistema, `build-windows.yml` → `.zip` en la misma Release |
 
 ## Estructura
 
@@ -25,6 +26,7 @@ El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al 
 .
 ├── .github/workflows/
 │   ├── build-ipa.yml          # Compila y publica el .ipa
+│   ├── build-windows.yml      # Tests .NET + .zip portable x64/ARM64
 │   └── validate-catalog.yml   # Valida catálogo y tests del normalizador
 ├── catalog/catalog.json       # Catálogo de ejemplo (servido por GitHub Pages)
 ├── schemas/catalog.schema.json
@@ -35,6 +37,10 @@ El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al 
 │   │   ├── Core/{MetadataMatcher,AudioPlayerManager,CatalogService,Models}.swift
 │   │   └── Resources/Info.plist
 │   └── LibreStreamTests/MetadataMatcherTests.swift
+├── windows/
+│   ├── LibreStream.Core/       # MetadataMatcher.cs, Catalog.cs (net8.0)
+│   ├── LibreStream.Core.Tests/ # xUnit
+│   └── LibreStream.App/        # WinUI 3: AudioPlayerManager.cs, MainWindow
 └── tools/
     ├── validate_catalog.py    # Validación JSON Schema + dedupe
     └── test_title_regex.py    # Casos borde de regex (espejo del Swift)
@@ -51,6 +57,8 @@ flowchart LR
   E --> F[StreamResolver<br/>URL directa por provider]
   F --> G[AudioPlayerManager<br/>AVPlayer + AVAudioSession]
   G --> H[MPNowPlayingInfoCenter<br/>MPRemoteCommandCenter]
+  C -->|HTTPS GET + ETag| W[CatalogService .NET<br/>Windows]
+  W --> X[MediaPlayer + SMTC<br/>WinUI 3]
 ```
 
 ## Desarrollo
@@ -58,6 +66,8 @@ flowchart LR
 ```bash
 python tools/test_title_regex.py && python tools/validate_catalog.py catalog/catalog.json
 ```
+
+En Windows (requiere .NET 8 SDK): `dotnet test windows/LibreStream.Core.Tests` y `dotnet run --project windows/LibreStream.App -r win-x64 -p:Platform=x64`.
 
 En macOS: `brew install xcodegen && cd ios && xcodegen && open LibreStream.xcodeproj`.
 

@@ -5,7 +5,7 @@ import AVKit
 struct LibreStreamApp: App {
     @StateObject private var catalog = CatalogService(
         url: URL(string: Bundle.main.object(forInfoDictionaryKey: "LSCatalogURL") as? String
-                 ?? "https://example.github.io/librestream-hub/catalog.json")!)
+                 ?? "https://vhkp259r94-cmyk.github.io/spotios/catalog.json")!)
     @StateObject private var player = AudioPlayerManager.shared
 
     var body: some Scene {
