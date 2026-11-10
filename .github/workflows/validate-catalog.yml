@@ -1,0 +1,44 @@
+name: Validate & publish catalog
+
+on:
+  push:
+    branches: [main]
+    paths: ["catalog/**", "schemas/**", "tools/**", ".github/workflows/validate-catalog.yml"]
+  pull_request:
+    paths: ["catalog/**", "schemas/**", "tools/**"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install jsonschema==4.23.0
+      - run: python tools/test_title_regex.py
+      - run: python tools/validate_catalog.py catalog/*.json
+      - name: Escaneo de secretos
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - if: github.event_name == 'push'
+        run: mkdir -p _site/schemas && cp catalog/*.json _site/ && cp schemas/*.json _site/schemas/
+      - if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
