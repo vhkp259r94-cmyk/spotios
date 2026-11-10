@@ -1,0 +1,49 @@
+<Window
+    x:Class="LibreStream.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:core="using:LibreStream.Core"
+    Title="LibreStream">
+    <Grid Padding="16" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <AutoSuggestBox x:Name="Search" PlaceholderText="Buscar artista o título" QueryIcon="Find"
+                        TextChanged="Search_TextChanged" />
+
+        <ListView x:Name="Library" Grid.Row="1" IsItemClickEnabled="True" ItemClick="Library_ItemClick">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="core:CatalogItem">
+                    <StackPanel Padding="0,6">
+                        <TextBlock Text="{x:Bind Title}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="{x:Bind Artist}" Opacity="0.7" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <MediaPlayerElement x:Name="Video" Grid.Row="2" Height="240" Visibility="Collapsed"
+                            AreTransportControlsEnabled="True" />
+
+        <Grid Grid.Row="3" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock x:Name="NowTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock x:Name="NowArtist" Opacity="0.7" />
+                <TextBlock x:Name="Status" Foreground="Red" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                <Button Click="Prev_Click" ToolTipService.ToolTip="Anterior"><SymbolIcon Symbol="Previous" /></Button>
+                <Button Click="Play_Click" ToolTipService.ToolTip="Reproducir/Pausa"><SymbolIcon x:Name="PlayIcon" Symbol="Play" /></Button>
+                <Button Click="Next_Click" ToolTipService.ToolTip="Siguiente"><SymbolIcon Symbol="Next" /></Button>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
