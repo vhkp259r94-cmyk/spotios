@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>LibreStream</title>
+<style><!--CSS--></style>
+</head>
+<body>
+<div id="app">
+  <nav id="nav">
+    <div class="brand">♫ LibreStream</div>
+    <button data-page="home"><span class="ico">⌂</span>Inicio</button>
+    <button data-page="music"><span class="ico">♪</span>Música</button>
+    <button data-page="videos"><span class="ico">▶</span>Vídeos</button>
+    <button data-page="library"><span class="ico">▤</span>Biblioteca</button>
+    <button data-page="settings"><span class="ico">⚙</span>Ajustes</button>
+  </nav>
+
+  <main id="main">
+    <header id="top"><input id="q" type="search" placeholder="Buscar música y vídeos" autocomplete="off" enterkeyhint="search"></header>
+    <div id="view"></div>
+  </main>
+
+  <aside id="lyrics" hidden>
+    <header><b>Letra</b><button id="lyricsClose">✕</button></header>
+    <div id="lyricsInfo"></div>
+    <ul id="lyricsList"></ul>
+  </aside>
+
+  <div id="videoLayer" class="mini">
+    <button id="closeVideo">← Volver</button>
+    <div id="yt"></div>
+    <video id="html5" playsinline webkit-playsinline controls></video>
+  </div>
+
+  <footer id="bar">
+    <div class="now"><img id="nowImg" alt="" style="visibility:hidden"><div style="min-width:0"><div id="nowTitle">Nada en reproducción</div><div id="nowSub"></div></div></div>
+    <div class="center">
+      <div class="ctrl"><button class="ghost" id="prev" aria-label="Anterior">⏮</button><button id="play" aria-label="Reproducir o pausar">▶</button><button class="ghost" id="next" aria-label="Siguiente">⏭</button></div>
+      <div class="prog"><span id="elapsed">0:00</span><input id="progress" type="range" min="0" max="1" value="0" step="1" aria-label="Progreso"><span id="total">0:00</span></div>
+    </div>
+    <div class="extra">
+      <button id="addList" aria-label="Añadir a una lista">＋</button>
+      <button id="heart" aria-label="Guardar en Mi biblioteca">♡</button>
+      <button id="dlBtn" aria-label="Descargas">⬇</button>
+      <button id="lyricsBtn" aria-label="Letra">Letra</button>
+      <button id="videoBtn" aria-label="Mostrar u ocultar el vídeo">▭</button>
+      <input id="volume" type="range" min="0" max="100" value="80" aria-label="Volumen">
+    </div>
+  </footer>
+  <div id="addMenu" hidden></div>
+  <div id="toast"></div>
+</div>
+<script><!--JS--></script>
+</body>
+</html>

@@ -1,19 +1,18 @@
 import SwiftUI
-import AVKit
+import AVFoundation
 
 @main
 struct LibreStreamApp: App {
-    @StateObject private var catalog = CatalogService(
-        url: URL(string: Bundle.main.object(forInfoDictionaryKey: "LSCatalogURL") as? String
-                 ?? "https://vhkp259r94-cmyk.github.io/spotios/catalog.json")!)
-    @StateObject private var player = AudioPlayerManager.shared
+    init() {
+        // Audio incluso con el interruptor de silencio y con la pantalla apagada
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        try? AVAudioSession.sharedInstance().setActive(true)
+    }
 
     var body: some Scene {
         WindowGroup {
-            LibraryView()
-                .environmentObject(catalog)
-                .environmentObject(player)
-                .task { await catalog.refresh() }
+            WebShell()
+                .background(Color(red: 0.07, green: 0.07, blue: 0.08).ignoresSafeArea())
         }
     }
 }

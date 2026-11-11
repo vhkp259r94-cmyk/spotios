@@ -1,0 +1,27 @@
+// Servidor de desarrollo: sirve dist/ y hace de puente para leer YouTube/LRCLIB (en un navegador no hay CORS).
+// Uso: node app/build.mjs && node app/dev/server.mjs [puerto]
+import { createServer } from 'node:http';
+import { readFileSync, existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const dist = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+const port = Number(process.argv[2]) || 5173;
+const ALLOWED = ['www.youtube.com', 'lrclib.net', 'vhkp259r94-cmyk.github.io'];
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
+
+createServer(async (req, res) => {
+  const url = new URL(req.url, 'http://localhost');
+  if (url.pathname === '/__proxy') {
+    try {
+      const target = new URL(url.searchParams.get('url') || '');
+      if (target.protocol !== 'https:' || !ALLOWED.includes(target.hostname)) { res.writeHead(403).end('host no permitido'); return; }
+      const r = await fetch(target, { headers: { 'User-Agent': UA, 'Accept-Language': 'es-ES,es;q=0.9' } });
+      res.writeHead(r.status, { 'Content-Type': r.headers.get('content-type') || 'text/plain' }).end(await r.text());
+    } catch (e) { res.writeHead(502).end(String(e)); }
+    return;
+  }
+  const file = join(dist, url.pathname === '/' ? 'index.html' : url.pathname.replace(/\.\./g, ''));
+  if (!existsSync(file)) { res.writeHead(404).end('no encontrado'); return; }
+  res.writeHead(200, { 'Content-Type': file.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8' }).end(readFileSync(file));
+}).listen(port, '127.0.0.1', () => console.log(`LibreStream (web) en http://localhost:${port}`));

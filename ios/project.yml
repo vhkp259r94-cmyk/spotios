@@ -16,7 +16,11 @@ targets:
   LibreStream:
     type: application
     platform: iOS
-    sources: [LibreStream]
+    sources:
+      - LibreStream
+      - path: ../app/dist      # interfaz compartida (se genera con: node app/build.mjs)
+        type: folder
+        buildPhase: resources
     info:
       path: LibreStream/Resources/Info.plist
       properties:

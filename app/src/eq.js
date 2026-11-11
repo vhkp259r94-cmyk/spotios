@@ -1,6 +1,10 @@
 // Ecualizador de 10 bandas para el vídeo de YouTube incrustado (Web Audio API).
-// Se inyecta en el marco del reproductor; la app lo controla con window.__lsEq(gananciasDb, activado).
+// Se inyecta en el marco (iframe) de YouTube: Windows con WebView2, iOS con WKUserScript y Android con
+// addDocumentStartJavaScript. La app lo controla con window.__lsEq(gananciasDb, activado) o, desde la
+// página, con postMessage({ lsEq: { gains, on } }). Un único archivo para todas las plataformas.
 (() => {
+  // Solo en YouTube: sobre medios de otros orígenes (sin CORS) el audio quedaría en silencio
+  if (!/(^|\.)youtube(-nocookie)?\.com$/.test(location.hostname)) return;
   if (window.__lsEqInstalled) return;
   window.__lsEqInstalled = true;
 
@@ -60,6 +64,14 @@
 
   window.__lsEqStatus = () => JSON.stringify({
     attached, state: ctx ? ctx.state : null, level: level(), error: window.__lsEqError || null
+  });
+
+  // Órdenes desde la página que contiene el iframe (iOS y Android)
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.lsEq) window.__lsEq(d.lsEq.gains, d.lsEq.on);
+    if (d.lsEqStatusReq && e.source) e.source.postMessage({ lsEqStatus: JSON.parse(window.__lsEqStatus()) }, '*');
   });
 
   setInterval(() => {

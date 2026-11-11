@@ -1,0 +1,126 @@
+package org.librestream.app
+
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import java.io.ByteArrayInputStream
+import java.io.File
+
+/** Envoltorio nativo de la interfaz compartida (app/dist/index.html) dentro de un WebView. */
+class MainActivity : Activity() {
+
+    private lateinit var web: WebView
+    private lateinit var root: FrameLayout
+    private var customView: View? = null
+    private var customCallback: WebChromeClient.CustomViewCallback? = null
+
+    /** Interruptor de anuncios (lo cambia la interfaz desde Ajustes). Se lee en el hilo de red del WebView. */
+    @Volatile
+    var adBlockEnabled: Boolean = true
+
+    @SuppressLint("SetJavaScriptEnabled")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+
+        root = FrameLayout(this).apply { setBackgroundColor(BACKGROUND) }
+        web = WebView(this).apply { setBackgroundColor(BACKGROUND) }
+        root.addView(web, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        setContentView(root)
+        root.fitsSystemWindows = true
+
+        web.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true                       // localStorage: biblioteca, listas y ajustes
+            mediaPlaybackRequiresUserGesture = false       // la canción empieza al pulsar la tarjeta
+            allowFileAccess = false
+            allowContentAccess = false
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        }
+
+        // Sirve la interfaz y las descargas bajo un origen https (el reproductor de YouTube lo exige)
+        val downloads = File(filesDir, "downloads").apply { mkdirs() }
+        val loader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .addPathHandler("/media/", WebViewAssetLoader.InternalStoragePathHandler(this, downloads))
+            .build()
+
+        web.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                if (adBlockEnabled && AdBlock.isAd(request.url.toString())) {
+                    return WebResourceResponse("text/plain", "utf-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+                }
+                return loader.shouldInterceptRequest(request.url)
+            }
+
+            // Los enlaces externos se abren en el navegador; la propia app y los iframes siguen dentro
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                if (request.url.host == ASSET_HOST || !request.isForMainFrame) return false
+                try { startActivity(Intent(Intent.ACTION_VIEW, request.url)) } catch (_: Exception) { /* sin navegador */ }
+                return true
+            }
+        }
+
+        web.webChromeClient = object : WebChromeClient() {
+            // Pantalla completa del vídeo de YouTube
+            override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+                if (customView != null) { callback.onCustomViewHidden(); return }
+                customView = view
+                customCallback = callback
+                root.addView(view, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                web.visibility = View.GONE
+            }
+
+            override fun onHideCustomView() {
+                customView?.let { root.removeView(it) }
+                customView = null
+                customCallback?.onCustomViewHidden()
+                customCallback = null
+                web.visibility = View.VISIBLE
+            }
+        }
+
+        web.addJavascriptInterface(NativeBridge(this, web), "AndroidBridge")
+
+        // Ecualizador: se inyecta en el iframe de YouTube antes de que cargue su contenido
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            val eq = assets.open("eq.js").bufferedReader().use { it.readText() }
+            WebViewCompat.addDocumentStartJavaScript(web, eq, setOf("https://www.youtube.com", "https://www.youtube-nocookie.com"))
+        }
+
+        web.loadUrl("https://$ASSET_HOST/assets/index.html")
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        when {
+            customView != null -> web.webChromeClient?.onHideCustomView()
+            web.canGoBack() -> web.goBack()
+            else -> @Suppress("DEPRECATION") super.onBackPressed()
+        }
+    }
+
+    override fun onDestroy() {
+        web.destroy()
+        super.onDestroy()
+    }
+
+    companion object {
+        const val ASSET_HOST = "appassets.androidplatform.net"
+        private const val BACKGROUND = 0xFF121214.toInt()
+    }
+}

@@ -4,7 +4,7 @@ on:
   push:
     tags: ["v*"]
   pull_request:
-    paths: ["ios/**", ".github/workflows/build-ipa.yml"]
+    paths: ["ios/**", "app/**", ".github/workflows/build-ipa.yml"]
   workflow_dispatch:
 
 permissions:
@@ -23,6 +23,15 @@ jobs:
         working-directory: ios
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Interfaz compartida (tests y empaquetado)
+        working-directory: .
+        run: |
+          node --test app/test/core.test.mjs
+          node app/build.mjs
 
       - name: Seleccionar Xcode
         run: |

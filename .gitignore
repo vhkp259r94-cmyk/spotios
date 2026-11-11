@@ -54,3 +54,13 @@ obj/
 out/
 *.user
 TestResults/
+
+# --- Web / Android ---
+app/dist/
+android/.gradle/
+android/**/build/
+android/local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
