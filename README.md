@@ -9,8 +9,11 @@ El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al 
 > material propio…). El campo `source.provider` admite `youtube` únicamente como *referencia de
 > metadatos/embebido oficial*; este repo **no** incluye extractores de streams de terceros.
 
-> **YouTube (Windows):** la pestaña YouTube usa el sitio oficial embebido (WebView2) para buscar y reproducir.
-> No se extraen streams: la reproducción ocurre en el reproductor de YouTube, con sus anuncios y condiciones.
+> **YouTube (Windows):** al buscar, los resultados de YouTube aparecen como tarjetas dentro de la app y se
+> reproducen con el reproductor oficial embebido (IFrame Player API), controlado por la barra de la app
+> (play/pausa, anterior/siguiente, progreso, volumen). Se pueden guardar en «Mi biblioteca».
+> No se extraen ni descargan streams. Un filtro de red bloquea servidores de anuncios y rastreo conocidos;
+> los anuncios que YouTube sirve desde sus propios servidores de vídeo pueden seguir apareciendo.
 
 ## Plan por fases
 
@@ -85,5 +88,5 @@ En macOS: `brew install xcodegen && cd ios && xcodegen && open LibreStream.xcode
 ## Release
 
 ```bash
-git tag v0.2.0 && git push origin v0.2.0
+git tag v0.3.0 && git push origin v0.3.0
 ```

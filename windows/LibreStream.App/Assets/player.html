@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>html, body, #p { margin: 0; height: 100%; width: 100%; background: #000; overflow: hidden; }</style>
+</head>
+<body>
+<div id="p"></div>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+  // Reproductor oficial de YouTube (IFrame Player API) controlado desde la app.
+  let player = null, ready = false, pending = null;
+  const post = o => window.chrome.webview.postMessage(JSON.stringify(o));
+
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player('p', {
+      width: '100%', height: '100%',
+      playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
+      events: {
+        onReady: () => { ready = true; post({ type: 'ready' }); if (pending) { load(pending); pending = null; } },
+        onStateChange: e => { if (e.data === 0) post({ type: 'ended' }); tick(); },
+        onError: e => post({ type: 'error', code: e.data })
+      }
+    });
+  }
+
+  function load(id) { if (!ready) { pending = id; return; } player.loadVideoById(id); }
+
+  function cmd(name, arg) {
+    if (!ready) return;
+    switch (name) {
+      case 'play': player.playVideo(); break;
+      case 'pause': player.pauseVideo(); break;
+      case 'seek': player.seekTo(arg, true); break;
+      case 'volume': player.setVolume(arg); break;
+      case 'stop': player.stopVideo(); break;
+    }
+  }
+
+  function tick() {
+    if (!ready || !player.getPlayerState) return;
+    post({ type: 'state', state: player.getPlayerState(), time: player.getCurrentTime() || 0, duration: player.getDuration() || 0 });
+  }
+  setInterval(tick, 500);
+</script>
+</body>
+</html>

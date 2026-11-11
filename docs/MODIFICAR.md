@@ -13,7 +13,10 @@ mantenerse **idénticos**: si cambias una regex, cámbiala en los tres y en sus 
 | Cambiar la pantalla de biblioteca | `Views/Library/LibraryView.swift` | `LibreStream.App/Views/MainWindow.xaml(.cs)` | — |
 | Cambiar el mini‑reproductor | `Views/Player/MiniPlayer.swift` | `LibreStream.App/Views/MainWindow.xaml` | — |
 | Cambiar las tarjetas (portada, degradado, textos) | — | `LibreStream.App/Views/MediaCard.cs` | — |
-| Cambiar la pestaña/búsqueda de YouTube | (pendiente) | `LibreStream.App/Views/MainWindow.xaml.cs` (`ShowYouTube`) | — |
+| Cambiar la búsqueda de YouTube | (pendiente) | `LibreStream.Core/Services/YouTube/YouTubeSearch.cs` | — |
+| Cambiar el reproductor embebido de YouTube | (pendiente) | `LibreStream.App/Assets/player.html` + `Views/MainWindow.xaml.cs` | — |
+| Cambiar la biblioteca guardada | (pendiente) | `LibreStream.Core/Services/Library/LibraryStore.cs` | — |
+| Añadir/quitar dominios del bloqueo de anuncios | (pendiente) | `LibreStream.Core/Services/Privacy/AdBlock.cs` | — |
 | Cambiar la URL del catálogo | `ios/project.yml` (`LSCatalogURL`) | `Views/MainWindow.xaml.cs` (`CatalogUrl`) | — |
 | Añadir canciones/vídeos | `catalog/catalog.json` | (igual) | `tools/validate_catalog.py` |
 
@@ -32,5 +35,5 @@ dotnet test windows/LibreStream.Core.Tests   # si tienes .NET 8
 
 ## Publicar una versión
 ```bash
-git tag v0.2.0 && git push origin v0.2.0   # genera .ipa y .zip de Windows en Releases
+git tag v0.3.0 && git push origin v0.3.0   # genera .ipa y .zip de Windows en Releases
 ```

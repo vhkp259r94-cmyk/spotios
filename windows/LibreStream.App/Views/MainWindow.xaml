@@ -79,7 +79,7 @@
                 <NavigationViewItem Content="Música" Icon="Audio" Tag="track" />
                 <NavigationViewItem Content="Vídeos" Icon="Video" Tag="video" />
                 <NavigationViewItemSeparator />
-                <NavigationViewItem x:Name="YouTubeItem" Content="YouTube" Icon="Globe" Tag="youtube" />
+                <NavigationViewItem Content="Mi biblioteca" Icon="Library" Tag="library" />
             </NavigationView.MenuItems>
 
             <Grid>
@@ -112,14 +112,6 @@
                         </Grid>
 
                         <TextBlock x:Name="Status" Foreground="#FF8A80" TextWrapping="Wrap" Visibility="Collapsed" />
-                        <TextBlock x:Name="Empty" Text="No hay resultados en el catálogo libre." Opacity="0.7" Visibility="Collapsed" />
-                        <Button x:Name="YouTubeSearchButton" Visibility="Collapsed" Click="YouTubeSearch_Click">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <SymbolIcon Symbol="Globe" />
-                                <TextBlock x:Name="YouTubeSearchText" />
-                            </StackPanel>
-                        </Button>
-
                         <StackPanel x:Name="VideosSection" Spacing="6">
                             <TextBlock Text="Películas y cortos" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
                             <ItemsRepeater x:Name="VideosRepeater" ItemTemplate="{StaticResource VideoCard}">
@@ -137,18 +129,48 @@
                                 </ItemsRepeater.Layout>
                             </ItemsRepeater>
                         </StackPanel>
+
+                        <StackPanel x:Name="YouTubeSection" Spacing="6" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal" Spacing="10" Margin="8,8,0,0">
+                                <TextBlock Text="YouTube" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <ProgressRing x:Name="YouTubeBusy" IsActive="False" Width="18" Height="18" />
+                            </StackPanel>
+                            <TextBlock x:Name="YouTubeInfo" Opacity="0.7" Margin="8,0,0,0" />
+                            <ItemsRepeater x:Name="YouTubeRepeater" ItemTemplate="{StaticResource VideoCard}">
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
+                                </ItemsRepeater.Layout>
+                            </ItemsRepeater>
+                        </StackPanel>
+
+                        <StackPanel x:Name="SavedSection" Spacing="6" Visibility="Collapsed">
+                            <TextBlock Text="Mi biblioteca" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
+                            <TextBlock x:Name="SavedEmpty" Opacity="0.7" Margin="8,0,0,0" TextWrapping="Wrap"
+                                       Text="Aún no has guardado nada. Reproduce algo y pulsa el corazón de la barra inferior." />
+                            <ItemsRepeater x:Name="SavedRepeater" ItemTemplate="{StaticResource VideoCard}">
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
+                                </ItemsRepeater.Layout>
+                            </ItemsRepeater>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- YouTube oficial embebido (búsqueda y reproducción) -->
-                <Grid x:Name="YouTubeLayer" Visibility="Collapsed">
-                    <WebView2 x:Name="Web" />
+                <!-- Reproductor oficial de YouTube embebido, controlado por la barra de la app -->
+                <Grid x:Name="YouTubeLayer" Background="Black" Visibility="Collapsed">
+                    <WebView2 x:Name="YouTubePlayer" Margin="0,56,0,0" />
+                    <Button Margin="12" VerticalAlignment="Top" Click="CloseLayer_Click" ToolTipService.ToolTip="Ocultar vídeo (sigue sonando)">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <SymbolIcon Symbol="Back" />
+                            <TextBlock Text="Volver" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
 
                 <!-- Reproductor de vídeo a pantalla completa del área de contenido -->
                 <Grid x:Name="VideoLayer" Background="Black" Visibility="Collapsed">
                     <MediaPlayerElement x:Name="Video" AreTransportControlsEnabled="False" Stretch="Uniform" />
-                    <Button Margin="16" VerticalAlignment="Top" Click="CloseVideo_Click" ToolTipService.ToolTip="Volver">
+                    <Button Margin="16" VerticalAlignment="Top" Click="CloseLayer_Click" ToolTipService.ToolTip="Ocultar vídeo (sigue sonando)">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <SymbolIcon Symbol="Back" />
                             <TextBlock Text="Volver" />
@@ -164,7 +186,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="300" />
             </Grid.ColumnDefinitions>
 
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
@@ -180,14 +202,14 @@
 
             <StackPanel Grid.Column="1" Spacing="2" MaxWidth="720">
                 <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                    <Button Click="Prev_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Anterior">
+                    <Button Click="Prev_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Anterior" AutomationProperties.Name="Anterior">
                         <SymbolIcon Symbol="Previous" />
                     </Button>
                     <Button Click="Play_Click" Style="{StaticResource AccentButtonStyle}" Width="44" Height="44" CornerRadius="22" Padding="0"
-                            ToolTipService.ToolTip="Reproducir / Pausa">
+                            ToolTipService.ToolTip="Reproducir / Pausa" AutomationProperties.Name="Reproducir o pausar">
                         <SymbolIcon x:Name="PlayIcon" Symbol="Play" />
                     </Button>
-                    <Button Click="Next_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Siguiente">
+                    <Button Click="Next_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Siguiente" AutomationProperties.Name="Siguiente">
                         <SymbolIcon Symbol="Next" />
                     </Button>
                 </StackPanel>
@@ -205,6 +227,12 @@
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Click="Save_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Guardar en Mi biblioteca" AutomationProperties.Name="Guardar">
+                    <FontIcon x:Name="SaveIcon" Glyph="&#xEB51;" />
+                </Button>
+                <Button Click="ShowVideo_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Mostrar u ocultar el vídeo" AutomationProperties.Name="Mostrar vídeo">
+                    <SymbolIcon Symbol="SlideShow" />
+                </Button>
                 <SymbolIcon Symbol="Volume" />
                 <Slider x:Name="Volume" Width="130" Minimum="0" Maximum="100" Value="80" ValueChanged="Volume_ValueChanged" />
             </StackPanel>

@@ -6,27 +6,64 @@ using Windows.UI;
 
 namespace LibreStream.App;
 
-/// <summary>Datos de presentación de un elemento del catálogo (tarjeta).</summary>
+/// <summary>
+/// Datos de presentación de una tarjeta. Puede venir del catálogo libre (<see cref="Item"/>)
+/// o de YouTube (<see cref="YouTubeId"/>).
+/// </summary>
 public sealed class MediaCard
 {
-    public CatalogItem Item { get; }
-    public string Title => Item.Title;
+    public CatalogItem? Item { get; }
+    public string? YouTubeId { get; }
+    public string Id { get; }
+    public string Title { get; }
     public string Subtitle { get; }
+    public double DurationSec { get; }
+    public Uri? ArtworkUrl { get; }
+
+    public string Source => YouTubeId is null ? "catalog" : "youtube";
+    public bool IsTrack => Item?.Kind == ItemKind.Track;
     public string Initials { get; }
-    public string DurationText { get; }
+    public string DurationText => DurationSec > 0 ? Format(TimeSpan.FromSeconds(DurationSec)) : "EN DIRECTO";
     public ImageSource? Artwork { get; }
     public Brush Tile { get; }
 
     public MediaCard(CatalogItem item)
+        : this(item.Id, item.Title,
+               item.Featuring is { Count: > 0 } f ? $"{item.Artist} · con {string.Join(", ", f)}" : item.Artist,
+               item.DurationSec, item.ArtworkUrl)
     {
         Item = item;
-        Subtitle = item.Featuring is { Count: > 0 } f ? $"{item.Artist} · con {string.Join(", ", f)}" : item.Artist;
-        Initials = string.Concat(item.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Where(w => char.IsLetterOrDigit(w[0])).Take(2).Select(w => char.ToUpperInvariant(w[0])));
-        DurationText = Format(TimeSpan.FromSeconds(item.DurationSec));
-        Artwork = item.ArtworkUrl is null ? null : new BitmapImage(item.ArtworkUrl);
-        Tile = Gradient(item.Id);
     }
+
+    public MediaCard(YouTubeVideo v) : this(v.Id, v.Title, v.Channel, v.DurationSec, v.Thumbnail)
+    {
+        YouTubeId = v.Id;
+    }
+
+    /// <summary>Tarjeta desde la biblioteca guardada; <paramref name="catalogItem"/> se resuelve por id si es del catálogo.</summary>
+    public MediaCard(SavedItem s, CatalogItem? catalogItem)
+        : this(s.Id, s.Title, s.Subtitle, s.DurationSec, Uri.TryCreate(s.ArtworkUrl, UriKind.Absolute, out var u) ? u : null)
+    {
+        if (s.Source == "youtube") YouTubeId = s.Id;
+        else Item = catalogItem;
+    }
+
+    private MediaCard(string id, string title, string subtitle, double durationSec, Uri? artwork)
+    {
+        Id = id;
+        Title = title;
+        Subtitle = subtitle;
+        DurationSec = durationSec;
+        ArtworkUrl = artwork;
+        Initials = string.Concat(title.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => char.IsLetterOrDigit(w[0])).Take(2).Select(w => char.ToUpperInvariant(w[0])));
+        Artwork = artwork is null ? null : new BitmapImage(artwork);
+        Tile = Gradient(id);
+    }
+
+    public bool IsPlayable => YouTubeId is not null || Item is not null;
+
+    public SavedItem ToSaved() => new(Source, Id, Title, Subtitle, DurationSec, ArtworkUrl?.AbsoluteUri);
 
     public static string Format(TimeSpan t) =>
         t.TotalHours >= 1 ? $"{(int)t.TotalHours}:{t.Minutes:00}:{t.Seconds:00}" : $"{t.Minutes}:{t.Seconds:00}";
@@ -34,8 +71,9 @@ public sealed class MediaCard
     /// <summary>Degradado estable derivado del id (cada elemento tiene siempre el mismo color).</summary>
     private static LinearGradientBrush Gradient(string id)
     {
-        var seed = id.Length >= 4 && int.TryParse(id[..4], System.Globalization.NumberStyles.HexNumber, null, out var n) ? n : id.GetHashCode();
-        double hue = Math.Abs(seed) % 360;
+        var seed = 17;
+        foreach (var ch in id) seed = unchecked(seed * 31 + ch);
+        double hue = Math.Abs(seed % 360);
         var brush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 1) };
         brush.GradientStops.Add(new GradientStop { Color = Hsl(hue, 0.65, 0.42), Offset = 0 });
         brush.GradientStops.Add(new GradientStop { Color = Hsl((hue + 50) % 360, 0.70, 0.22), Offset = 1 });
