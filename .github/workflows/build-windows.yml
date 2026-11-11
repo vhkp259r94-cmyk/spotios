@@ -41,16 +41,16 @@ jobs:
         run: >
           dotnet publish windows/LibreStream.App -c Release
           -r win-${{ matrix.arch }} -p:Platform=${{ matrix.arch }}
-          -o out/Nimbo
+          -o out/Nsound
 
       - name: Empaquetar .zip
         id: pkg
         shell: pwsh
         run: |
           $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { "dev-$($env:GITHUB_SHA.Substring(0,7))" }
-          if (-not (Test-Path out/Nimbo/Nimbo.exe)) { Write-Error "No se generó Nimbo.exe"; exit 1 }
-          $zip = "Nimbo-$version-windows-${{ matrix.arch }}.zip"
-          Compress-Archive -Path out/Nimbo/* -DestinationPath $zip
+          if (-not (Test-Path out/Nsound/Nsound.exe)) { Write-Error "No se generó Nsound.exe"; exit 1 }
+          $zip = "Nsound-$version-windows-${{ matrix.arch }}.zip"
+          Compress-Archive -Path out/Nsound/* -DestinationPath $zip
           (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + "  $zip" | Out-File "$zip.sha256" -Encoding ascii
           "zip=$zip" >> $env:GITHUB_OUTPUT
 

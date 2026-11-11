@@ -25,7 +25,7 @@ targets:
     info:
       path: LibreStream/Resources/Info.plist
       properties:
-        CFBundleDisplayName: Nimbo
+        CFBundleDisplayName: Nsound
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}

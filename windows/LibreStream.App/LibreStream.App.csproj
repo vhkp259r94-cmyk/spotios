@@ -4,8 +4,8 @@
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>LibreStream.App</RootNamespace>
-    <AssemblyName>Nimbo</AssemblyName>
-    <Product>Nimbo</Product>
+    <AssemblyName>Nsound</AssemblyName>
+    <Product>Nsound</Product>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

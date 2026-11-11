@@ -7,7 +7,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
-            <!-- Colores del logo de Nimbo (el rojo del rayo) en lugar del acento de Windows -->
+            <!-- Colores del logo de Nsound (el rojo del rayo) en lugar del acento de Windows -->
             <Color x:Key="SystemAccentColor">#E5465C</Color>
             <Color x:Key="SystemAccentColorDark1">#C93A4F</Color>
             <Color x:Key="SystemAccentColorDark2">#AC2F42</Color>

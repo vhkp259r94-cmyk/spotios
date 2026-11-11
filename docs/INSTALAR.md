@@ -1,6 +1,6 @@
-# Cómo instalar Nimbo
+# Cómo instalar Nsound
 
-Nimbo es gratuita y no tiene cuentas ni suscripciones. Los paquetes no están firmados por una tienda
+Nsound es gratuita y no tiene cuentas ni suscripciones. Los paquetes no están firmados por una tienda
 (Microsoft Store, Google Play, App Store), así que cada sistema te pedirá una confirmación al instalar.
 Es normal: no significa que haya nada raro, sino que la app no pasa por una tienda.
 
@@ -17,9 +17,9 @@ En Windows: `Get-FileHash .\archivo -Algorithm SHA256` y compara el resultado co
 
 Necesitas: Windows 10 (1809) o superior y el *WebView2 Runtime* (ya viene con Windows 11 y con Windows 10 actualizado).
 
-1. Descarga `Nimbo-<versión>-windows-x64.zip` (o `-arm64.zip` si tu PC es ARM).
+1. Descarga `Nsound-<versión>-windows-x64.zip` (o `-arm64.zip` si tu PC es ARM).
 2. **Extrae todo el contenido** del zip en una carpeta (clic derecho → *Extraer todo*). No lo ejecutes desde dentro del zip.
-3. Abre `Nimbo.exe`.
+3. Abre `Nsound.exe`.
 4. Si aparece *«Windows protegió su PC»*: pulsa **Más información → Ejecutar de todas formas**
    (SmartScreen avisa porque el programa no está firmado).
 
@@ -31,7 +31,7 @@ No necesita instalador ni permisos de administrador. Para desinstalar, borra la 
 
 ## Android 7 o superior
 
-1. Descarga `Nimbo-<versión>-android.apk` en el móvil (o pásalo desde el PC por cable, Drive, etc.).
+1. Descarga `Nsound-<versión>-android.apk` en el móvil (o pásalo desde el PC por cable, Drive, etc.).
 2. Ábrelo. Android te pedirá permitir instalar apps desde esa fuente (el navegador o el gestor de archivos que uses):
    **Ajustes → Permitir de esta fuente**. Es un permiso que puedes quitar después.
 3. Si Google Play Protect dice *«App no verificada»* o *«Bloqueada»*: pulsa **Más detalles → Instalar de todas formas**
@@ -53,7 +53,7 @@ Elige **una** de estas formas:
 3. Abre Sideloadly, arrastra el `.ipa` y escribe tu Apple ID. Pulsa **Start**.
 4. En el iPhone: **Ajustes → General → VPN y gestión de dispositivos →** tu Apple ID **→ Confiar**.
 5. iOS 16 o superior: **Ajustes → Privacidad y seguridad → Modo desarrollador → Activar** (pide reiniciar).
-6. Abre Nimbo.
+6. Abre Nsound.
 
 ### Opción B: AltStore
 Instala [AltStore](https://altstore.io) en el ordenador y en el iPhone, abre AltStore → **My Apps → +** y elige el `.ipa`.
