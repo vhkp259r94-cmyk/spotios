@@ -1,4 +1,4 @@
-name: Prueba en móvil simulado (Android + iPhone)
+name: "Prueba en móvil simulado (Android + iPhone)"
 
 # Arranca de verdad la app en un emulador de Android y en un simulador de iPhone, la deja funcionando
 # y recoge capturas, uso de CPU/memoria y errores. Se lanza a mano (consume bastantes minutos).
@@ -35,7 +35,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Emulador Pixel 6 (Android 14): abrir, reproducir y medir
+      - name: "Emulador Pixel 6 (Android 14) - abrir, reproducir y medir"
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -74,7 +74,7 @@ jobs:
           xcodebuild build -project LibreStream.xcodeproj -scheme LibreStream -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO | tail -5
-      - name: iPhone simulado: abrir, reproducir y medir
+      - name: "iPhone simulado - abrir, reproducir y medir"
         run: bash ios/ci/smoke.sh
 
       - uses: actions/upload-artifact@v4
