@@ -30,5 +30,5 @@ dotnet test windows/LibreStream.Core.Tests   # si tienes .NET 8
 
 ## Publicar una versión
 ```bash
-git tag v0.1.0 && git push origin v0.1.0   # genera .ipa y .zip de Windows en Releases
+git tag v0.1.1 && git push origin v0.1.1   # genera .ipa y .zip de Windows en Releases
 ```
