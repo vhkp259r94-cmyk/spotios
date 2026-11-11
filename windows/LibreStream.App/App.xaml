@@ -15,6 +15,20 @@
             <Color x:Key="SystemAccentColorLight1">#E5465C</Color>
             <Color x:Key="SystemAccentColorLight2">#E5465C</Color>
             <Color x:Key="SystemAccentColorLight3">#F08295</Color>
+
+            <!-- Pinceles de la paleta: MainWindow.ApplyLook cambia su color en caliente y todo el que los usa se actualiza -->
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FF4D62" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#E6FF4D62" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#CCFF4D62" />
+            <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="NsAccentBrush" Color="#FF4D62" />
+            <SolidColorBrush x:Key="NsBgBrush" Color="#0B0C10" />
+            <SolidColorBrush x:Key="NsPaneBrush" Color="#0AFFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#0AFFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#0AFFFFFF" />
+            <SolidColorBrush x:Key="NsBarBrush" Color="#F214161D" />
+            <SolidColorBrush x:Key="NsLineBrush" Color="#16FFFFFF" />
+            <SolidColorBrush x:Key="NsPanelBrush" Color="#33000000" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

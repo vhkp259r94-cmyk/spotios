@@ -114,6 +114,9 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
         case "fetchText":
             guard let s = payload["url"] as? String else { replyHandler(nil, "Falta la dirección"); return }
             fetchText(s, reply: replyHandler)
+        case "postJson":
+            guard let s = payload["url"] as? String, let body = payload["body"] as? String else { replyHandler(nil, "Falta la dirección"); return }
+            postJson(s, body: body, reply: replyHandler)
         case "download":
             download(payload, reply: replyHandler)
         case "deleteDownload":
@@ -132,6 +135,29 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
             reply(nil, "Dirección no permitida"); return
         }
         var request = URLRequest(url: url, timeoutInterval: 20)
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue("es-ES,es;q=0.9,en;q=0.8", forHTTPHeaderField: "Accept-Language")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error { reply(nil, error.localizedDescription); return }
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                guard (200..<300).contains(status), let data else { reply(nil, "HTTP \(status)"); return }
+                reply(String(decoding: data, as: UTF8.self), nil)
+            }
+        }.resume()
+    }
+
+    /// POST de JSON solo a YouTube Music (búsqueda de canciones).
+    private func postJson(_ urlString: String, body: String, reply: @escaping (Any?, String?) -> Void) {
+        guard let url = URL(string: urlString), url.scheme == "https", url.host == "music.youtube.com", body.utf8.count < 20_000 else {
+            reply(nil, "Dirección no permitida"); return
+        }
+        var request = URLRequest(url: url, timeoutInterval: 20)
+        request.httpMethod = "POST"
+        request.httpBody = Data(body.utf8)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("https://music.youtube.com", forHTTPHeaderField: "Origin")
+        request.setValue("https://music.youtube.com/", forHTTPHeaderField: "Referer")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("es-ES,es;q=0.9,en;q=0.8", forHTTPHeaderField: "Accept-Language")
         URLSession.shared.dataTask(with: request) { data, response, error in

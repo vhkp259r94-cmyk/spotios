@@ -14,6 +14,7 @@ public sealed class AppSettings
     public string? DownloadFolder { get; set; }
     public bool AdBlock { get; set; } = true;
     public double Volume { get; set; } = 80;
+    public string Look { get; set; } = Themes.Default;
 
     /// <summary>Corrige valores fuera de rango o con forma inesperada (archivo editado a mano o antiguo).</summary>
     public void Normalize()
@@ -26,6 +27,7 @@ public sealed class AppSettings
         if (string.IsNullOrWhiteSpace(EqPreset) || (EqPreset != EqPresets.Custom && !EqPresets.All.ContainsKey(EqPreset)))
             EqPreset = EqPresets.Custom;
         if (string.IsNullOrWhiteSpace(DownloadFolder)) DownloadFolder = null;
+        if (Themes.All.All(t => t.Id != Look)) Look = Themes.Default;
     }
 }
 

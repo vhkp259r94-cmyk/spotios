@@ -3,10 +3,10 @@ using System.Text.RegularExpressions;
 
 namespace LibreStream.Core;
 
-public sealed record YouTubeVideo(string Id, string Title, string Channel, double DurationSec, string? Published = null)
+public sealed record YouTubeVideo(string Id, string Title, string Channel, double DurationSec, string? Published = null, string? Art = null)
 {
     public bool IsLive => DurationSec <= 0;
-    public Uri Thumbnail => new($"https://i.ytimg.com/vi/{Id}/mqdefault.jpg");
+    public Uri Thumbnail => Art is not null && Uri.TryCreate(Art, UriKind.Absolute, out var art) ? art : new($"https://i.ytimg.com/vi/{Id}/mqdefault.jpg");
 }
 
 /// <summary>

@@ -1,10 +1,13 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Numerics;
 using System.Text.Json;
 using LibreStream.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Web.WebView2.Core;
@@ -121,6 +124,9 @@ public sealed partial class MainWindow : Window
         BuildChips(Genres, GenreNames, Genre_Click);
         BuildChips(ScopeChips, ["Todo", "Música", "Vídeos"], Scope_Click, ["all", "track", "video"]);
         BuildEqUi();
+        LookBox.ItemsSource = Themes.All.Select(t => t.Name).ToList();
+        ApplyLook(_settings.Current.Look);
+        StartKenBurns();
         _ = LoadAsync();
         _ = InitYouTubePlayerAsync();
     }
@@ -338,7 +344,16 @@ public sealed partial class MainWindow : Window
         YouTubeInfo.Text = "";
         try
         {
-            var results = await YouTubeSearch.SearchAsync(_http, query, cts.Token, videosOnly: true);
+            List<YouTubeVideo>? results = null;
+            if (scope == "track")
+            {
+                // Música: solo canciones de YouTube Music (versiones de audio: sin intros ni charla)
+                var musicQuery = typed.Length > 0 ? typed : YouTubeMusic.GenreQuery(kind == "track" ? _genre : "Éxitos", DateTime.Now.Year);
+                try { results = (await YouTubeMusic.SearchSongsAsync(_http, musicQuery, cts.Token)).Where(ContentFilter.IsSong).ToList(); }
+                catch (Exception ex) when (ex is not OperationCanceledException) { App.LogOnce("YouTube Music", ex); }
+                if (results is { Count: 0 }) results = null;   // si YouTube Music no da nada, se usa la búsqueda normal
+            }
+            results ??= await YouTubeSearch.SearchAsync(_http, query, cts.Token, videosOnly: true);
             if (cts.IsCancellationRequested || kind != _kind || scope != Scope) return;
             results = scope == "track" ? results.Where(ContentFilter.IsSong).ToList()
                 : scope == "video" ? results.Where(ContentFilter.IsVideo).ToList()
@@ -513,6 +528,8 @@ public sealed partial class MainWindow : Window
         NowImage.Source = _now.Artwork;
         SaveIcon.Glyph = _library.Contains(_now.Source, _now.Id) ? "" : "";
         if (LyricsPanel.Visibility == Visibility.Visible) _ = LoadLyricsAsync();
+        UpdateAmbient();
+        UpdateNowSheet();
     }
 
     // ===================== Letra sincronizada =====================
@@ -531,7 +548,7 @@ public sealed partial class MainWindow : Window
 
         var (artist, title) = card.Item is { } item
             ? (item.Artist, item.Title)
-            : LyricsService.GuessTrack(card.Title, card.Subtitle);
+            : LyricsService.GuessTrack(card.Title, card.Subtitle.Split(" · ")[0]);
         try
         {
             var found = await LyricsService.FindAsync(_http, artist, title, card.DurationSec, cts.Token);
@@ -618,10 +635,11 @@ public sealed partial class MainWindow : Window
 
     private void PlaylistMenu_Opening(object? sender, object e)
     {
-        PlaylistMenu.Items.Clear();
+        var menu = sender as MenuFlyout ?? PlaylistMenu;
+        menu.Items.Clear();
         if (_now is not { } card)
         {
-            PlaylistMenu.Items.Add(new MenuFlyoutItem { Text = "Reproduce algo para añadirlo a una lista", IsEnabled = false });
+            menu.Items.Add(new MenuFlyoutItem { Text = "Reproduce algo para añadirlo a una lista", IsEnabled = false });
             return;
         }
         var saved = card.ToSaved();
@@ -634,12 +652,12 @@ public sealed partial class MainWindow : Window
                 _playlists.Toggle(id, saved);
                 if (_kind == "pl:" + id) ApplyFilter();
             };
-            PlaylistMenu.Items.Add(entry);
+            menu.Items.Add(entry);
         }
-        if (_playlists.All.Count > 0) PlaylistMenu.Items.Add(new MenuFlyoutSeparator());
+        if (_playlists.All.Count > 0) menu.Items.Add(new MenuFlyoutSeparator());
         var create = new MenuFlyoutItem { Text = "Nueva lista con esta canción…", Icon = new SymbolIcon(Symbol.Add) };
         create.Click += (_, _) => _ = CreatePlaylistAsync(addCurrent: true);
-        PlaylistMenu.Items.Add(create);
+        menu.Items.Add(create);
     }
 
     private void PlayAll_Click(object sender, RoutedEventArgs e)
@@ -697,6 +715,7 @@ public sealed partial class MainWindow : Window
         _updatingProgress = false;
 
         FollowLyrics(pos.TotalSeconds);
+        SyncSheetAndBars(pos, total);
         Elapsed.Text = MediaCard.Format(pos);
         Total.Text = MediaCard.Format(total);
 
@@ -869,6 +888,7 @@ public sealed partial class MainWindow : Window
         }
         DownloadFolderText.Text = "Carpeta: " + _settings.DownloadFolder;
         AdBlockToggle.IsOn = s.AdBlock;
+        LookBox.SelectedIndex = Math.Max(0, Array.FindIndex(Themes.All, t => t.Id == s.Look));
         _loadingUi = false;
         _ = RefreshEqStatusAsync();
     }
@@ -1080,6 +1100,192 @@ public sealed partial class MainWindow : Window
             : null);
     }
 
+    // ===================== Estilo: paleta, brillo ambiental y movimiento =====================
+
+    private ThemePalette _palette = Themes.Find(null);
+    private Storyboard? _bars;
+    private bool _barsOn;
+
+    private static Windows.UI.Color Hex(string hex, byte alpha = 255)
+    {
+        var v = Convert.ToUInt32(hex.TrimStart('#'), 16);
+        return Windows.UI.Color.FromArgb(alpha, (byte)(v >> 16), (byte)(v >> 8), (byte)v);
+    }
+
+    private static void SetBrush(string key, Windows.UI.Color color)
+    {
+        if (Application.Current.Resources[key] is SolidColorBrush brush) brush.Color = color;
+    }
+
+    /// <summary>Aplica un estilo: cambia los pinceles compartidos en caliente (todo lo que los usa se actualiza).</summary>
+    private void ApplyLook(string id)
+    {
+        var t = _palette = Themes.Find(id);
+        var classic = t.Id == "clasico";
+        Root.RequestedTheme = t.Dark ? ElementTheme.Dark : ElementTheme.Light;
+        SetBrush("AccentFillColorDefaultBrush", Hex(t.Accent));
+        SetBrush("AccentFillColorSecondaryBrush", Hex(t.Accent, 0xE6));
+        SetBrush("AccentFillColorTertiaryBrush", Hex(t.Accent, 0xCC));
+        SetBrush("TextOnAccentFillColorPrimaryBrush", Hex(t.On));
+        SetBrush("NsAccentBrush", Hex(t.Accent));
+        SetBrush("NsBgBrush", Hex(t.Bg));
+        var pane = t.Dark ? Hex("#FFFFFF", 0x0A) : Hex("#000000", 0x08);
+        SetBrush("NsPaneBrush", pane);
+        SetBrush("NavigationViewDefaultPaneBackground", pane);       // fondo del menú lateral
+        SetBrush("NavigationViewExpandedPaneBackground", pane);
+        SetBrush("NsBarBrush", Hex(t.Surface, 0xF2));
+        SetBrush("NsLineBrush", t.Dark ? Hex("#FFFFFF", 0x16) : Hex("#000000", 0x1A));
+        SetBrush("NsPanelBrush", t.Dark ? Hex("#000000", 0x33) : Hex("#000000", 0x0D));
+
+        Ambient.Visibility = AmbientBlue.Visibility = Vis(!classic);
+        AmbientBlueStop.Color = Hex(t.Blue, t.Dark ? (byte)0x33 : (byte)0x22);
+        AmbientBlueEnd.Color = Hex(t.Blue, 0);
+        SlashA.Color = Hex(t.Accent, 0); SlashB.Color = Hex(t.Accent, 0x66); SlashC.Color = Hex(t.Accent, 0);
+        HeroSlash.Visibility = Vis(!classic);
+        Hero.CornerRadius = new CornerRadius(classic ? 14 : 26);
+        Bar.Margin = classic ? new Thickness(0) : new Thickness(12, 4, 12, 12);
+        Bar.CornerRadius = new CornerRadius(classic ? 0 : 22);
+        Bar.BorderThickness = classic ? new Thickness(0, 1, 0, 0) : new Thickness(1);
+        UpdateAmbient();
+        if (_featured is not null) UpdateHero();
+        if (classic) CloseNowSheet();
+        SetBars(IsPlaying);
+    }
+
+    /// <summary>El brillo de arriba a la derecha toma el tono de la canción (o el acento si no suena nada).</summary>
+    private void UpdateAmbient()
+    {
+        var color = _now is { } n ? MediaCard.Hsl(MediaCard.HueOf(n.Id), 0.8, 0.48) : Hex(_palette.Accent);
+        var alpha = _palette.Dark ? (byte)0x4D : (byte)0x30;
+        AmbientStop.Color = Windows.UI.Color.FromArgb(alpha, color.R, color.G, color.B);
+        AmbientEnd.Color = Windows.UI.Color.FromArgb(0, color.R, color.G, color.B);
+        NpGlowStop.Color = Windows.UI.Color.FromArgb(0x70, color.R, color.G, color.B);
+        NpGlowEnd.Color = Windows.UI.Color.FromArgb(0, color.R, color.G, color.B);
+    }
+
+    private void StartKenBurns()
+    {
+        var sb = new Storyboard();
+        foreach (var prop in new[] { "ScaleX", "ScaleY" })
+        {
+            var a = new DoubleAnimation
+            {
+                From = 1.02, To = 1.13, Duration = TimeSpan.FromSeconds(26), AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever, EnableDependentAnimation = true,
+            };
+            Storyboard.SetTarget(a, HeroScale);
+            Storyboard.SetTargetProperty(a, prop);
+            sb.Children.Add(a);
+        }
+        sb.Begin();
+    }
+
+    private void FadeIn()
+    {
+        Browse.OpacityTransition ??= new ScalarTransition { Duration = TimeSpan.FromMilliseconds(260) };
+        Browse.Opacity = 0;
+        DispatcherQueue.TryEnqueue(() => Browse.Opacity = 1);
+    }
+
+    private void SetBars(bool playing)
+    {
+        var show = playing && _palette.Id != "clasico";
+        PlayingBars.Visibility = Vis(show);
+        if (show == _barsOn) return;
+        _barsOn = show;
+        if (!show) { _bars?.Stop(); return; }
+        if (_bars is null)
+        {
+            _bars = new Storyboard();
+            foreach (var (scale, secs) in new[] { (Bar1, 0.9), (Bar2, 0.7), (Bar3, 1.1) })
+            {
+                var a = new DoubleAnimation
+                {
+                    From = 0.25, To = 1, Duration = TimeSpan.FromSeconds(secs), AutoReverse = true,
+                    RepeatBehavior = RepeatBehavior.Forever, EnableDependentAnimation = true,
+                };
+                Storyboard.SetTarget(a, scale);
+                Storyboard.SetTargetProperty(a, "ScaleY");
+                _bars.Children.Add(a);
+            }
+        }
+        _bars.Begin();
+    }
+
+    private void SyncSheetAndBars(TimeSpan pos, TimeSpan total)
+    {
+        SetBars(IsPlaying);
+        if (NowSheet.Visibility != Visibility.Visible) return;
+        _updatingProgress = true;
+        NpProgress.Maximum = Math.Max(1, total.TotalSeconds);
+        NpProgress.Value = Math.Min(pos.TotalSeconds, NpProgress.Maximum);
+        _updatingProgress = false;
+        NpElapsed.Text = MediaCard.Format(pos);
+        NpTotal.Text = MediaCard.Format(total);
+        NpPlayIcon.Symbol = IsPlaying ? Symbol.Pause : Symbol.Play;
+    }
+
+    // Pantalla «Reproduciendo»
+    private void Now_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (_now is not null && _palette.Id != "clasico") OpenNowSheet();
+    }
+
+    private void OpenNowSheet()
+    {
+        UpdateNowSheet();
+        ShowYouTubeLayer(false);
+        VideoLayer.Visibility = Visibility.Collapsed;
+        NowSheet.Visibility = Visibility.Visible;
+    }
+
+    private void CloseNowSheet() => NowSheet.Visibility = Visibility.Collapsed;
+
+    private void NowSheetClose_Click(object sender, RoutedEventArgs e) => CloseNowSheet();
+
+    private void NowSheetLyrics_Click(object sender, RoutedEventArgs e)
+    {
+        CloseNowSheet();
+        Lyrics_Click(sender, e);
+    }
+
+    private void NowSheetVideo_Click(object sender, RoutedEventArgs e)
+    {
+        CloseNowSheet();
+        if (_mode == Mode.YouTube) ShowYouTubeLayer(true);
+        else if (_mode == Mode.Native && _now is { IsTrack: false }) VideoLayer.Visibility = Visibility.Visible;
+    }
+
+    private void UpdateNowSheet()
+    {
+        if (_now is not { } card) return;
+        NpTitle.Text = card.Title;
+        NpArtist.Text = card.YouTubeId is null ? card.Subtitle : $"{card.Subtitle} · YouTube";
+        NpImage.Source = card.YouTubeId is { } id ? new BitmapImage(new Uri($"https://i.ytimg.com/vi/{id}/hq720.jpg")) : card.Artwork;
+        NpHeartIcon.Glyph = _library.Contains(card.Source, card.Id) ? "\uEB52" : "\uEB51";
+    }
+
+    private void Card_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (_palette.Id == "clasico" || sender is not UIElement ui) return;
+        ui.TranslationTransition ??= new Vector3Transition { Duration = TimeSpan.FromMilliseconds(220) };
+        ui.Translation = new Vector3(0, -6, 0);
+    }
+
+    private void Card_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is UIElement ui) ui.Translation = Vector3.Zero;
+    }
+
+    private void Look_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingUi || LookBox.SelectedIndex < 0) return;
+        var id = Themes.All[LookBox.SelectedIndex].Id;
+        _settings.Current.Look = id;
+        ScheduleSave();
+        ApplyLook(id);
+    }
+
     // ===================== Eventos de la interfaz =====================
 
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs e)
@@ -1087,6 +1293,7 @@ public sealed partial class MainWindow : Window
         _kind = (e.SelectedItem as NavigationViewItem)?.Tag as string ?? "all";
         VideoLayer.Visibility = Visibility.Collapsed;
         ShowYouTubeLayer(false);
+        FadeIn();
         if (_catalog is null) return;
         ApplyFilter();
         _ = SearchYouTubeAsync(Search.Text);

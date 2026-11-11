@@ -150,3 +150,30 @@ public class SettingsDownloadsTests
         Assert.Equal((song, video), (ContentFilter.IsSong(new YouTubeVideo("abcdefghijk", title, "Canal", seconds)),
                                      ContentFilter.IsVideo(new YouTubeVideo("abcdefghijk", title, "Canal", seconds))));
 }
+
+public class ThemesTests
+{
+    [Fact]
+    public void ThemesAreWellFormed()
+    {
+        Assert.Equal(7, Themes.All.Length);
+        Assert.Equal(Themes.All.Length, Themes.All.Select(t => t.Id).Distinct().Count());
+        var hex = new System.Text.RegularExpressions.Regex("^#[0-9A-Fa-f]{6}$");
+        foreach (var t in Themes.All)
+            Assert.All(new[] { t.Bg, t.Surface, t.Accent, t.Accent2, t.Blue, t.On }, c => Assert.Matches(hex, c));
+        Assert.Equal("nsound", Themes.Find("no-existe").Id);
+        Assert.Equal("claro", Themes.Find("claro").Id);
+        Assert.False(Themes.Find("claro").Dark);
+    }
+
+    [Fact]
+    public void UnknownLookFallsBackToDefault()
+    {
+        var s = new AppSettings { Look = "raro" };
+        s.Normalize();
+        Assert.Equal(Themes.Default, s.Look);
+        s.Look = "neon";
+        s.Normalize();
+        Assert.Equal("neon", s.Look);
+    }
+}

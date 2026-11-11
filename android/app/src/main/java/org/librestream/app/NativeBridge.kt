@@ -26,6 +26,7 @@ class NativeBridge(private val activity: MainActivity, private val web: WebView)
                 val p = JSONObject(payload)
                 when (name) {
                     "fetchText" -> resolve(id, true, JSONObject.quote(fetchText(p.getString("url"))))
+                    "postJson" -> resolve(id, true, JSONObject.quote(postJson(p.getString("url"), p.getString("body"))))
                     "download" -> resolve(id, true, download(p).toString())
                     "deleteDownload" -> {
                         if (!p.isNull("file")) File(downloadsDir, safeName(p.getString("file"))).delete()
@@ -74,6 +75,32 @@ class NativeBridge(private val activity: MainActivity, private val web: WebView)
         require(host in fetchHosts) { "Dirección no permitida" }
         val conn = open(urlString)
         try {
+            val status = conn.responseCode
+            if (status !in 200..299) throw IllegalStateException("HTTP $status")
+            return conn.inputStream.use { stream ->
+                val bytes = stream.readBytes()
+                require(bytes.size <= 12_000_000) { "Respuesta demasiado grande" }
+                String(bytes, Charsets.UTF_8)
+            }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /** POST de JSON solo a YouTube Music (búsqueda de canciones). */
+    private fun postJson(urlString: String, body: String): String {
+        val url = URL(urlString)
+        require(url.protocol == "https" && url.host == "music.youtube.com") { "Dirección no permitida" }
+        require(body.length < 20_000) { "Petición demasiado grande" }
+        val conn = open(urlString).apply {
+            requestMethod = "POST"
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Origin", "https://music.youtube.com")
+            setRequestProperty("Referer", "https://music.youtube.com/")
+        }
+        try {
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             val status = conn.responseCode
             if (status !in 200..299) throw IllegalStateException("HTTP $status")
             return conn.inputStream.use { stream ->

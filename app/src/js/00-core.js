@@ -19,6 +19,13 @@ var LS = globalThis.LS = globalThis.LS || {};
     'Clásica': [4, 3, 2, 1, -1, -1, 0, 2, 3, 4],
   };
   LS.EQ_CUSTOM = 'Personalizado';
+  // Estilos de la interfaz: [id, nombre, fondo, acento]
+  LS.LOOKS = [
+    ['nsound', 'Nsound', '#0b0c10', '#ff4d62'], ['neon', 'Neón', '#07060d', '#ff2bd6'],
+    ['oceano', 'Océano', '#05111b', '#2dd4bf'], ['atardecer', 'Atardecer', '#130b0d', '#ff8a3d'],
+    ['amoled', 'AMOLED', '#000000', '#ff4d62'], ['claro', 'Claro', '#f4f5f8', '#e11d48'],
+    ['clasico', 'Clásico', '#121214', '#ff6b6b'],
+  ];
   LS.SHELVES = [
     { title: 'Eventos del año', queries: ['La Velada del Año', 'Kings League resumen'] },
     { title: 'Series y tráilers', queries: ['tráiler oficial serie 2026', 'series estreno tráiler'] },
@@ -110,6 +117,65 @@ var LS = globalThis.LS = globalThis.LS || {};
     if (/unusual traffic|captcha|not a bot|confirm you.{0,10}re not a bot/i.test(h)) return `YouTube pide comprobar que no eres un robot (${kb} KB)`;
     if (!h.includes('ytInitialData')) return `página con otro formato, sin datos de vídeo (${kb} KB)`;
     return `página sin vídeos para esta búsqueda (${kb} KB)`;
+  };
+
+  // ---------- YouTube Music: solo canciones (versiones de audio, sin intros ni charla) ----------
+  LS.MUSIC_SEARCH_URL = 'https://music.youtube.com/youtubei/v1/search?prettyPrint=false';
+  LS.MUSIC_SONGS_PARAMS = 'EgWKAQIIAWoMEA4QChADEAQQCRAF';   // filtro «Canciones» de YouTube Music
+
+  LS.musicSearchBody = (query) => JSON.stringify({
+    context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20241106.01.00', hl: 'es', gl: 'ES' } },
+    query: String(query).trim(), params: LS.MUSIC_SONGS_PARAMS,
+  });
+
+  /** Búsqueda de YouTube Music por género (las canciones salen mejor con palabras sueltas). */
+  LS.genreQuery = function (genre, year) {
+    switch (genre) {
+      case 'Éxitos': return 'éxitos ' + year;
+      case 'Reggaetón': return 'reggaeton';
+      case 'Pop': return 'pop hits';
+      case 'Rock': return 'rock';
+      case 'Electrónica': return 'electronica';
+      case 'Hip hop': return 'hip hop';
+      case 'Latino': return 'latino';
+      case 'Lo-fi': return 'lofi';
+      default: return String(genre);
+    }
+  };
+
+  /** Respuesta de YouTube Music → [{ id, title, channel (artista), album, duration, art }] */
+  LS.parseYtMusic = function (json) {
+    let data;
+    try { data = typeof json === 'string' ? JSON.parse(json) : json; } catch (e) { return []; }
+    const out = [], seen = new Set();
+    const runs = (cols, i) => {
+      const t = cols[i] && cols[i].musicResponsiveListItemFlexColumnRenderer && cols[i].musicResponsiveListItemFlexColumnRenderer.text;
+      return t && Array.isArray(t.runs) ? t.runs.map((r) => (typeof r.text === 'string' ? r.text : '')) : [];
+    };
+    (function walk(o, depth) {
+      if (depth > 40 || o === null || typeof o !== 'object') return;
+      if (Array.isArray(o)) { for (const x of o) walk(x, depth + 1); return; }
+      for (const k of Object.keys(o)) {
+        if (k !== 'musicResponsiveListItemRenderer') { walk(o[k], depth + 1); continue; }
+        const r = o[k] || {};
+        const id = r.playlistItemData && r.playlistItemData.videoId;
+        const cols = Array.isArray(r.flexColumns) ? r.flexColumns : [];
+        if (!LS.isValidVideoId(id) || seen.has(id) || !cols.length) continue;
+        const title = (runs(cols, 0)[0] || '').trim();
+        const parts = runs(cols, 1).map((t) => t.trim()).filter((t) => t && !/^[•·]+$/.test(t));
+        if (!title || !parts.length) continue;
+        const last = parts[parts.length - 1];
+        const duration = /^\d+(:\d{2})+$/.test(last) ? LS.parseLength(last) : 0;
+        const thumbs = r.thumbnail && r.thumbnail.musicThumbnailRenderer && r.thumbnail.musicThumbnailRenderer.thumbnail && r.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails;
+        const url = Array.isArray(thumbs) && thumbs.length ? thumbs[thumbs.length - 1].url : '';
+        seen.add(id);
+        out.push({
+          id, title, channel: parts[0], album: parts.length >= 3 ? parts[1] : '', duration,
+          art: /^https:\/\//.test(url || '') ? url.replace(/=w\d+-h\d+.*$/, '=w544-h544') : '',
+        });
+      }
+    })(data, 0);
+    return out;
   };
 
   // ---------- Filtro música / vídeo ----------

@@ -239,4 +239,36 @@ test('ajustes: estilo Nsound por defecto, Clásico se conserva y lo raro se corr
   s.settings.set({ look: 'clasico' });
   assert.equal(LS.createStores(st).settings.get().look, 'clasico');
   assert.equal(LS.normalizeSettings({ look: 'raro' }).look, 'nsound');
+  for (const [id, name, bg, accent] of LS.LOOKS) {
+    assert.equal(LS.normalizeSettings({ look: id }).look, id);
+    assert.match(bg, /^#[0-9a-f]{6}$/i); assert.match(accent, /^#[0-9a-f]{6}$/i); assert.ok(name);
+  }
+  assert.equal(new Set(LS.LOOKS.map((l) => l[0])).size, LS.LOOKS.length);
+});
+
+test('YouTube Music: canciones con artista, álbum, duración y carátula', () => {
+  const song = (id, title, parts, art) => ({ musicResponsiveListItemRenderer: {
+    playlistItemData: { videoId: id },
+    thumbnail: { musicThumbnailRenderer: { thumbnail: { thumbnails: [{ url: 'https://lh3.googleusercontent.com/x=w60-h60-l90-rj' }, { url: art }] } } },
+    flexColumns: [
+      { musicResponsiveListItemFlexColumnRenderer: { text: { runs: [{ text: title }] } } },
+      { musicResponsiveListItemFlexColumnRenderer: { text: { runs: parts.flatMap((t, i) => (i ? [{ text: ' • ' }, { text: t }] : [{ text: t }])) } } },
+    ] } });
+  const json = { contents: { tabbedSearchResultsRenderer: { tabs: [{ tabRenderer: { content: { sectionListRenderer: { contents: [
+    { musicShelfRenderer: { contents: [
+      song('BSTsnWoslP4', 'Bohemian Rhapsody', ['Queen', 'A Night At The Opera', '5:55'], 'https://lh3.googleusercontent.com/abc=w226-h226-l90-rj'),
+      song('2iyV1rsnCzQ', 'Single suelto', ['Artista', '3:30'], ''),
+      song('malo', 'Id inválido', ['X', '1:00'], ''),
+      song('BSTsnWoslP4', 'Repetida', ['Queen', '5:55'], ''),
+    ] } }] } } } }] } } };
+  const r = LS.parseYtMusic(JSON.stringify(json));
+  assert.equal(r.length, 2);
+  assert.deepEqual(r[0], { id: 'BSTsnWoslP4', title: 'Bohemian Rhapsody', channel: 'Queen', album: 'A Night At The Opera', duration: 355, art: 'https://lh3.googleusercontent.com/abc=w544-h544' });
+  assert.equal(r[1].album, ''); assert.equal(r[1].duration, 210); assert.equal(r[1].art, '');
+  assert.deepEqual(LS.parseYtMusic('{ roto'), []);
+  assert.deepEqual(LS.parseYtMusic('{}'), []);
+  const body = JSON.parse(LS.musicSearchBody('  queen '));
+  assert.equal(body.query, 'queen'); assert.equal(body.params, LS.MUSIC_SONGS_PARAMS); assert.equal(body.context.client.clientName, 'WEB_REMIX');
+  assert.equal(LS.genreQuery('Éxitos', 2026), 'éxitos 2026'); assert.equal(LS.genreQuery('Lo-fi', 2026), 'lofi'); assert.equal(LS.genreQuery('Otro', 2026), 'Otro');
+  for (const g of LS.GENRES) assert.ok(LS.genreQuery(g, 2026).length > 2, g);
 });

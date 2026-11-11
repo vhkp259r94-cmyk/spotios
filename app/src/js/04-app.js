@@ -14,6 +14,15 @@
   }
   const store = LS.createStores(safeStorage());
 
+  // Estilo de la interfaz: «clasico» sin efectos; el resto activa body.fx y la paleta (data-theme)
+  function applyLook(id) {
+    const look = LS.LOOKS.find((l) => l[0] === id) || LS.LOOKS[0];
+    document.body.classList.toggle('fx', look[0] !== 'clasico');
+    if (look[0] === 'clasico') delete document.body.dataset.theme; else document.body.dataset.theme = look[0];
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', look[2]);
+  }
+
   // ---------- Estado ----------
   const S = {
     page: 'home', sub: 'saved',             // sub: saved | downloads | pl:<id>
@@ -54,6 +63,22 @@
   const slot = () => new Promise((res) => { if (running < 3) { running++; res(); } else waiting.push(res); });
   const release = () => { const n = waiting.shift(); if (n) n(); else running--; };
 
+  // Música: solo canciones de YouTube Music (versiones de audio: sin intros, charla ni vídeos con efectos)
+  async function musicSearch(query) {
+    const k = 'musica|' + query;
+    if (cache.has(k)) return cache.get(k);
+    const saved = persistent.get(k);
+    if (saved) { cache.set(k, saved); return saved; }
+    await slot();
+    try {
+      const r = LS.parseYtMusic(await Native.postJson(LS.MUSIC_SEARCH_URL, LS.musicSearchBody(query)));
+      if (!r.length) throw new Error('YouTube Music no devolvió canciones');
+      cache.set(k, r);
+      persistent.set(k, r);
+      return r;
+    } finally { release(); }
+  }
+
   async function ytSearch(query, opts) {
     const k = JSON.stringify([query, opts || {}]);
     if (cache.has(k)) return cache.get(k);
@@ -69,6 +94,11 @@
       return r;
     } finally { release(); }
   }
+
+  const musicItem = (m) => remember({
+    src: 'yt', id: m.id, title: m.title, artist: m.channel, sub: m.channel + (m.album ? ' · ' + m.album : ''), duration: m.duration,
+    thumb: m.art || `https://i.ytimg.com/vi/${m.id}/mqdefault.jpg`, kind: 'track',
+  });
 
   const hue = (id) => { let h = 17; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h) % 360; };
 
@@ -133,14 +163,25 @@
     const sc = scopeNow(), q = S.query.trim();
     const box = $(target);
     try {
-      let list;
+      let list, items;
       if (q.length === 1) { box.innerHTML = '<p class="hint">Escribe al menos dos letras.</p>'; return; }
-      if (q) list = await ytSearch(sc === 'track' ? q + ' audio' : q, { videosOnly: true });
+      if (sc === 'track') {
+        try {
+          const songs = await musicSearch(q || LS.genreQuery(S.page === 'music' ? S.genre : LS.GENRES[0], new Date().getFullYear()));
+          items = songs.filter((m) => LS.isSong({ title: m.title, duration: m.duration })).map(musicItem);
+          if (!items.length) items = null;
+        } catch (e) { items = null; }   // si YouTube Music falla, se usa la búsqueda normal
+      }
+      if (items) list = null;
+      else if (q) list = await ytSearch(sc === 'track' ? q + ' audio' : q, { videosOnly: true });
       else if (S.page === 'music' && S.genre !== LS.GENRES[0]) list = await ytSearch(S.genre + ' official music video', { videosOnly: true });
       else list = await ytSearch('official music video ' + new Date().getFullYear(), { videosOnly: true });
       if (id !== S.renderId) return;
-      list = sc === 'track' ? list.filter(LS.isSong) : sc === 'video' ? list.filter(LS.isVideo) : (q ? list.filter((x) => !LS.isLive(x)) : list.filter(LS.isSong));
-      const items = setList(listId, list.map(ytItem));
+      if (!items) {
+        list = sc === 'track' ? list.filter(LS.isSong) : sc === 'video' ? list.filter(LS.isVideo) : (q ? list.filter((x) => !LS.isLive(x)) : list.filter(LS.isSong));
+        items = list.map(ytItem);
+      }
+      items = setList(listId, items);
       box.innerHTML = items.length ? grid(listId, items, sc === 'track' ? 'track' : 'video') : '<p class="hint">Sin resultados en YouTube.</p>';
     } catch (e) {
       if (id === S.renderId) box.innerHTML = `<p class="hint err">No se pudo buscar en YouTube: ${esc(e.message)}</p>`;
@@ -282,8 +323,8 @@
     const s = store.settings.get();
     v.innerHTML = `<h1>Ajustes</h1>
       <section class="panel"><h2>Aspecto</h2>
-        <label class="field">Estilo <select id="look"><option value="nsound" ${s.look !== 'clasico' ? 'selected' : ''}>Nsound (prueba)</option><option value="clasico" ${s.look === 'clasico' ? 'selected' : ''}>Clásico</option></select></label>
-        <p class="note">El estilo «Nsound» usa los colores del logo, brillo ambiental y animaciones suaves (se apagan solas si tu móvil tiene «reducir movimiento»).</p></section>
+        <div class="chips">${LS.LOOKS.map(([id, name, , accent]) => `<button class="chip ${id === s.look ? 'on' : ''}" data-look="${id}"><i class="dot" style="background:${accent}"></i>${esc(name)}</button>`).join('')}</div>
+        <p class="note">Elige el estilo: cambia colores, brillo y animaciones al momento. «Clásico» es el aspecto de siempre; los demás se apagan solos si tu móvil tiene «reducir movimiento».</p></section>
       <section class="panel"><h2>Ecualizador</h2>
         <label class="switch"><input type="checkbox" id="eqOn" ${s.eqEnabled ? 'checked' : ''}> Activar ecualizador</label>
         <label class="field">Ajuste <select id="eqPreset">${[...Object.keys(LS.EQ_PRESETS), LS.EQ_CUSTOM].map((n) => `<option ${n === s.eqPreset ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
@@ -444,7 +485,8 @@
     S.lyricsFor = it.key; S.lyrics = null; S.lyricIndex = -1;
     const info = $('#lyricsInfo'), list = $('#lyricsList');
     list.innerHTML = ''; info.textContent = 'Buscando la letra…';
-    const g = it.src === 'yt' ? LS.guessTrack(it.title, it.sub) : { artist: it.sub, title: it.title };
+    const g = it.src !== 'yt' ? { artist: it.sub, title: it.title }
+      : it.artist ? { artist: it.artist, title: LS.cleanTitle(it.title).title } : LS.guessTrack(it.title, it.sub);
     try {
       const base = 'https://lrclib.net/api/search?';
       let found = LS.pickLyrics(await Native.fetchText(base + 'track_name=' + encodeURIComponent(g.title) + '&artist_name=' + encodeURIComponent(g.artist)), it.duration);
@@ -485,9 +527,10 @@
 
   // ---------- Eventos ----------
   document.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-act],[data-scope],[data-genre],[data-sub],[data-page]');
+    const t = e.target.closest('[data-act],[data-scope],[data-genre],[data-sub],[data-page],[data-look]');
     if (!t) { $('#addMenu').hidden = true; return; }
     const d = t.dataset;
+    if (d.look) { store.settings.set({ look: d.look }); applyLook(d.look); if (S.page === 'settings') render(); return; }
     if (d.page) { go('#/' + d.page); return; }
     if (d.scope) { S.scope = d.scope; render(); return; }
     if (d.genre) { S.genre = d.genre; render(); return; }
@@ -539,7 +582,6 @@
     const t = e.target;
     if (t.id === 'eqOn') { store.settings.set({ eqEnabled: t.checked }); applyEq(); refreshEqStatus(); }
     if (t.id === 'eqPreset' && LS.EQ_PRESETS[t.value]) { store.settings.set({ eqPreset: t.value, eqBands: LS.EQ_PRESETS[t.value] }); applyEq(); render(); }
-    if (t.id === 'look') { store.settings.set({ look: t.value }); document.body.classList.toggle('fx', t.value !== 'clasico'); }
     if (t.id === 'adOn') { store.settings.set({ adBlock: t.checked }); Native.call('setAdBlock', { enabled: t.checked }).catch(() => {}); }
   });
 
@@ -559,7 +601,7 @@
   // ---------- Arranque ----------
   Player.init();
   const s0 = store.settings.get();
-  document.body.classList.toggle('fx', s0.look !== 'clasico');
+  applyLook(s0.look);
   $('#volume').value = s0.volume;
   Player.setVolume(s0.volume);
   applyEq();

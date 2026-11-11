@@ -27,6 +27,11 @@ var LS = globalThis.LS = globalThis.LS || {};
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();
     }
+    if (name === 'postJson') {
+      const r = await fetch('/__post?url=' + encodeURIComponent(payload.url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload.body });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }
     throw new Error('Solo disponible en la app móvil');
   }
 
@@ -48,6 +53,7 @@ var LS = globalThis.LS = globalThis.LS || {};
     call,
     onEvent: (fn) => listeners.push(fn),
     fetchText: (url) => call('fetchText', { url }),
+    postJson: (url, body) => call('postJson', { url, body }),
     /** Las descargas al dispositivo solo existen en las apps móviles. */
     canDownload: platform !== 'web',
   };

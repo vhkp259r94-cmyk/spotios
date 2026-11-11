@@ -82,7 +82,15 @@ public sealed class MediaCard
         return brush;
     }
 
-    private static Color Hsl(double h, double s, double l)
+    /// <summary>Tono (0-359) estable derivado del id, el mismo que usa el degradado de la tarjeta.</summary>
+    public static double HueOf(string id)
+    {
+        var seed = 17;
+        foreach (var ch in id) seed = unchecked(seed * 31 + ch);
+        return Math.Abs(seed % 360);
+    }
+
+    internal static Color Hsl(double h, double s, double l)
     {
         double c = (1 - Math.Abs(2 * l - 1)) * s, x = c * (1 - Math.Abs(h / 60 % 2 - 1)), m = l - c / 2;
         var (r, g, b) = h switch

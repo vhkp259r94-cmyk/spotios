@@ -9,21 +9,21 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid x:Name="Root" RequestedTheme="Dark">
+    <Grid x:Name="Root" RequestedTheme="Dark" Background="{StaticResource NsBgBrush}">
         <Grid.Resources>
             <Style x:Key="CardButton" TargetType="Button">
                 <Setter Property="Padding" Value="8" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="CornerRadius" Value="16" />
                 <Setter Property="VerticalAlignment" Value="Top" />
             </Style>
 
             <!-- Tarjeta apaisada (vídeo) -->
             <DataTemplate x:Key="VideoCard" x:DataType="local:MediaCard">
-                <Button Style="{StaticResource CardButton}" Tag="{x:Bind}" Click="Card_Click">
+                <Button Style="{StaticResource CardButton}" Tag="{x:Bind}" Click="Card_Click" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited">
                     <StackPanel Width="256" Spacing="6">
-                        <Grid Height="144" CornerRadius="8" Background="{x:Bind Tile}">
+                        <Grid Height="144" CornerRadius="12" Background="{x:Bind Tile}">
                             <TextBlock Text="{x:Bind Initials}" FontSize="40" FontWeight="Bold" Opacity="0.85"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                             <Image Source="{x:Bind Artwork}" Stretch="UniformToFill" />
@@ -40,9 +40,9 @@
 
             <!-- Tarjeta cuadrada (música) -->
             <DataTemplate x:Key="TrackCard" x:DataType="local:MediaCard">
-                <Button Style="{StaticResource CardButton}" Tag="{x:Bind}" Click="Card_Click">
+                <Button Style="{StaticResource CardButton}" Tag="{x:Bind}" Click="Card_Click" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited">
                     <StackPanel Width="160" Spacing="6">
-                        <Grid Height="160" CornerRadius="8" Background="{x:Bind Tile}">
+                        <Grid Height="160" CornerRadius="12" Background="{x:Bind Tile}">
                             <TextBlock Text="{x:Bind Initials}" FontSize="44" FontWeight="Bold" Opacity="0.9"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                             <Image Source="{x:Bind Artwork}" Stretch="UniformToFill" />
@@ -59,6 +59,24 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+
+        <!-- Brillo ambiental: cambia de color con cada canción -->
+        <Rectangle x:Name="Ambient" Grid.RowSpan="3" IsHitTestVisible="False">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="1,0" EndPoint="0.3,0.7">
+                    <GradientStop x:Name="AmbientStop" Color="#4DFF4D62" Offset="0" />
+                    <GradientStop x:Name="AmbientEnd" Color="#00FF4D62" Offset="1" />
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+        <Rectangle x:Name="AmbientBlue" Grid.RowSpan="3" IsHitTestVisible="False">
+            <Rectangle.Fill>
+                <LinearGradientBrush StartPoint="0,1" EndPoint="0.6,0.35">
+                    <GradientStop x:Name="AmbientBlueStop" Color="#333B82F6" Offset="0" />
+                    <GradientStop x:Name="AmbientBlueEnd" Color="#003B82F6" Offset="1" />
+                </LinearGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
 
         <!-- Barra de título -->
         <Grid x:Name="TitleBar">
@@ -97,7 +115,7 @@
 
                 <!-- Letra sincronizada (LRCLIB) -->
                 <Grid x:Name="LyricsPanel" Grid.Column="1" Width="340" Padding="16,20,12,12" RowSpacing="8"
-                      Background="#33000000" BorderBrush="#22FFFFFF" BorderThickness="1,0,0,0" Visibility="Collapsed">
+                      Background="{StaticResource NsPanelBrush}" BorderBrush="{StaticResource NsLineBrush}" BorderThickness="1,0,0,0" Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -133,9 +151,11 @@
                         <StackPanel x:Name="Genres" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" Visibility="Collapsed" />
 
                         <!-- Destacado -->
-                        <Grid x:Name="Hero" Height="280" CornerRadius="14" Visibility="Collapsed">
+                        <Grid x:Name="Hero" Height="300" CornerRadius="26" Visibility="Collapsed">
                             <Border x:Name="HeroTile" />
-                            <Image x:Name="HeroImage" Stretch="UniformToFill" Opacity="0.55" />
+                            <Image x:Name="HeroImage" Stretch="UniformToFill" Opacity="0.8" RenderTransformOrigin="0.7,0.4">
+                                <Image.RenderTransform><ScaleTransform x:Name="HeroScale" ScaleX="1.02" ScaleY="1.02" /></Image.RenderTransform>
+                            </Image>
                             <Border>
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
@@ -144,10 +164,20 @@
                                     </LinearGradientBrush>
                                 </Border.Background>
                             </Border>
+                            <Rectangle x:Name="HeroSlash" Width="70" Height="460" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,180,0" IsHitTestVisible="False" RenderTransformOrigin="0.5,0.5">
+                                <Rectangle.RenderTransform><SkewTransform AngleX="-18" /></Rectangle.RenderTransform>
+                                <Rectangle.Fill>
+                                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                        <GradientStop x:Name="SlashA" Color="#00FF4D62" Offset="0" />
+                                        <GradientStop x:Name="SlashB" Color="#66FF4D62" Offset="0.5" />
+                                        <GradientStop x:Name="SlashC" Color="#00FF4D62" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Rectangle.Fill>
+                            </Rectangle>
                             <StackPanel VerticalAlignment="Bottom" Margin="32" Spacing="6" MaxWidth="560" HorizontalAlignment="Left">
-                                <TextBlock x:Name="HeroLabel" Text="NUEVO LANZAMIENTO" FontSize="12" CharacterSpacing="120" Opacity="0.85" />
-                                <TextBlock x:Name="HeroTitle" FontSize="34" FontWeight="Bold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
-                                <TextBlock x:Name="HeroSubtitle" Opacity="0.8" />
+                                <TextBlock x:Name="HeroLabel" Foreground="White" Text="NUEVO LANZAMIENTO" FontSize="12" CharacterSpacing="120" Opacity="0.85" />
+                                <TextBlock x:Name="HeroTitle" Foreground="White" FontSize="34" FontWeight="Bold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="HeroSubtitle" Foreground="White" Opacity="0.8" />
                                 <Button Style="{StaticResource AccentButtonStyle}" Margin="0,10,0,0" Padding="20,8" Click="Hero_Click">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <SymbolIcon Symbol="Play" />
@@ -201,6 +231,12 @@
 
                         <StackPanel x:Name="SettingsSection" Spacing="22" Visibility="Collapsed" MaxWidth="820" HorizontalAlignment="Left" Margin="8,0,0,0">
                             <StackPanel Spacing="8">
+                                <TextBlock Text="Aspecto" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <ComboBox x:Name="LookBox" Header="Estilo" Width="240" SelectionChanged="Look_Changed" />
+                                <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
+                                           Text="Cambia colores, brillo y animaciones al momento. «Clásico» es el aspecto de siempre." />
+                            </StackPanel>
+                            <StackPanel Spacing="8">
                                 <TextBlock Text="Ecualizador" Style="{StaticResource SubtitleTextBlockStyle}" />
                                 <ToggleSwitch x:Name="EqToggle" Header="Activar ecualizador" OnContent="Activado" OffContent="Desactivado" Toggled="EqToggle_Toggled" />
                                 <ComboBox x:Name="EqPresetBox" Header="Ajuste" Width="220" SelectionChanged="EqPreset_Changed" />
@@ -252,22 +288,27 @@
         </NavigationView>
 
         <!-- Barra de reproducción -->
-        <Grid Grid.Row="2" Padding="16,10" ColumnSpacing="16" Background="#CC101014"
-              BorderBrush="#22FFFFFF" BorderThickness="0,1,0,0">
+        <Grid x:Name="Bar" Grid.Row="2" Margin="12,4,12,12" CornerRadius="22" Padding="16,10" ColumnSpacing="16"
+              Background="{StaticResource NsBarBrush}" BorderBrush="{StaticResource NsLineBrush}" BorderThickness="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="470" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <Grid Width="48" Height="48" CornerRadius="6">
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" Background="Transparent" Tapped="Now_Tapped">
+                <Grid Width="48" Height="48" CornerRadius="10">
                     <Border x:Name="NowTile" Background="#22FFFFFF" />
                     <Image x:Name="NowImage" Stretch="UniformToFill" />
                 </Grid>
-                <StackPanel VerticalAlignment="Center" MaxWidth="190">
+                <StackPanel VerticalAlignment="Center" MaxWidth="140">
                     <TextBlock x:Name="NowTitle" Text="Nada en reproducción" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                     <TextBlock x:Name="NowArtist" FontSize="12" Opacity="0.65" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <StackPanel x:Name="PlayingBars" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center" Visibility="Collapsed">
+                    <Rectangle Width="3" Height="16" Fill="{StaticResource NsAccentBrush}" RadiusX="1.5" RadiusY="1.5" RenderTransformOrigin="0.5,1"><Rectangle.RenderTransform><ScaleTransform x:Name="Bar1" ScaleY="0.4" /></Rectangle.RenderTransform></Rectangle>
+                    <Rectangle Width="3" Height="16" Fill="{StaticResource NsAccentBrush}" RadiusX="1.5" RadiusY="1.5" RenderTransformOrigin="0.5,1"><Rectangle.RenderTransform><ScaleTransform x:Name="Bar2" ScaleY="0.8" /></Rectangle.RenderTransform></Rectangle>
+                    <Rectangle Width="3" Height="16" Fill="{StaticResource NsAccentBrush}" RadiusX="1.5" RadiusY="1.5" RenderTransformOrigin="0.5,1"><Rectangle.RenderTransform><ScaleTransform x:Name="Bar3" ScaleY="0.5" /></Rectangle.RenderTransform></Rectangle>
                 </StackPanel>
             </StackPanel>
 
@@ -318,6 +359,48 @@
                 </Button>
                 <SymbolIcon Symbol="Volume" />
                 <Slider x:Name="Volume" Width="130" Minimum="0" Maximum="100" Value="80" ValueChanged="Volume_ValueChanged" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Pantalla «Reproduciendo» -->
+        <Grid x:Name="NowSheet" Grid.RowSpan="3" Visibility="Collapsed" Background="{StaticResource NsBgBrush}">
+            <Rectangle IsHitTestVisible="False">
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,0.75">
+                        <GradientStop x:Name="NpGlowStop" Color="#66FF4D62" Offset="0" />
+                        <GradientStop x:Name="NpGlowEnd" Color="#00FF4D62" Offset="1" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <Button HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,48,0,0" Width="44" Height="44" CornerRadius="22" Padding="0"
+                    Click="NowSheetClose_Click" AutomationProperties.Name="Cerrar">
+                <FontIcon Glyph="&#xE70D;" />
+            </Button>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="560" Padding="24">
+                <Border Width="340" Height="340" CornerRadius="28" Background="{StaticResource NsPanelBrush}" HorizontalAlignment="Center">
+                    <Image x:Name="NpImage" Stretch="UniformToFill" />
+                </Border>
+                <TextBlock x:Name="NpTitle" FontSize="26" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Margin="0,14,0,0" />
+                <TextBlock x:Name="NpArtist" Opacity="0.7" TextAlignment="Center" />
+                <Slider x:Name="NpProgress" Minimum="0" Maximum="1" IsThumbToolTipEnabled="False" ValueChanged="Progress_ValueChanged" Margin="0,10,0,0" />
+                <Grid>
+                    <TextBlock x:Name="NpElapsed" Text="0:00" FontSize="12" Opacity="0.7" />
+                    <TextBlock x:Name="NpTotal" Text="0:00" FontSize="12" Opacity="0.7" HorizontalAlignment="Right" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="18" HorizontalAlignment="Center">
+                    <Button Click="Prev_Click" Background="Transparent" BorderThickness="0" Width="56" Height="56" CornerRadius="28" AutomationProperties.Name="Anterior"><SymbolIcon Symbol="Previous" /></Button>
+                    <Button Click="Play_Click" Style="{StaticResource AccentButtonStyle}" Width="72" Height="72" CornerRadius="36" Padding="0" AutomationProperties.Name="Reproducir o pausar"><SymbolIcon x:Name="NpPlayIcon" Symbol="Play" /></Button>
+                    <Button Click="Next_Click" Background="Transparent" BorderThickness="0" Width="56" Height="56" CornerRadius="28" AutomationProperties.Name="Siguiente"><SymbolIcon Symbol="Next" /></Button>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                    <Button Click="Save_Click" CornerRadius="14" MinWidth="56" MinHeight="46" AutomationProperties.Name="Guardar"><FontIcon x:Name="NpHeartIcon" Glyph="&#xEB51;" /></Button>
+                    <Button CornerRadius="14" MinWidth="56" MinHeight="46" AutomationProperties.Name="Añadir a lista">
+                        <SymbolIcon Symbol="Add" />
+                        <Button.Flyout><MenuFlyout x:Name="PlaylistMenu2" Opening="PlaylistMenu_Opening" /></Button.Flyout>
+                    </Button>
+                    <Button Click="NowSheetLyrics_Click" Content="Letra" CornerRadius="14" MinWidth="56" MinHeight="46" />
+                    <Button Click="NowSheetVideo_Click" CornerRadius="14" MinWidth="56" MinHeight="46" AutomationProperties.Name="Mostrar vídeo"><SymbolIcon Symbol="SlideShow" /></Button>
+                </StackPanel>
             </StackPanel>
         </Grid>
     </Grid>
