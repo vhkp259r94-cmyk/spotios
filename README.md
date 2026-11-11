@@ -28,6 +28,8 @@ El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al 
 > Windows sigue siendo nativo (WinUI 3) y comparte `app/src/eq.js`. Las apps móviles se compilan en GitHub Actions;
 > aún no se han probado en un dispositivo real.
 
+> **Instalar:** pasos para Windows, Android e iPhone en [docs/INSTALAR.md](docs/INSTALAR.md).
+
 ## Plan por fases
 
 | Fase | Objetivo | Hitos |
