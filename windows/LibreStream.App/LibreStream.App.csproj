@@ -24,7 +24,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..pp\src\eq.js" Link="Assets\eq.js" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\app\src\eq.js" Link="Assets\eq.js" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\LibreStream.Core\LibreStream.Core.csproj" />
