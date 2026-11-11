@@ -24,6 +24,7 @@ mantenerse **idénticos**: si cambias una regex, cámbiala en los tres y en sus 
 | Cambiar el sonido del ecualizador | (pendiente) | `LibreStream.App/Assets/eq.js` | — |
 | Cambiar las descargas | (pendiente) | `LibreStream.Core/Services/Downloads/Downloads.cs` | — |
 | **iOS y Android:** cambiar pantallas, tarjetas o textos | `app/src/js/04-app.js` + `app/src/css/app.css` | (igual) | `node app/build.mjs` |
+| **iOS y Android:** colores, animaciones y estilo «Nsound» (prueba reversible en Ajustes → Aspecto) | `app/src/css/fx.css` | (igual) | `node app/build.mjs` |
 | **iOS y Android:** reglas de filtro, estanterías, letras, ajustes | `app/src/js/00-core.js` (y `01-stores.js`) | (igual) | `node --test app/test` |
 | **iOS y Android:** lectura de YouTube, descargas, anuncios | `ios/LibreStream/Shell/WebShell.swift` | `android/app/src/main/java/org/librestream/app/` | — |
 | Probar las apps en un móvil simulado (emulador de Android + simulador de iPhone) | Actions → «Prueba en móvil simulado» (`.github/workflows/mobile-smoke.yml`); capturas y medidas en los artefactos | (igual) | `android/ci/smoke.sh`, `ios/ci/smoke.sh` |

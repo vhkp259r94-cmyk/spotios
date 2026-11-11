@@ -8,7 +8,8 @@ const src = join(root, 'src');
 const dist = join(root, 'dist');
 mkdirSync(dist, { recursive: true });
 
-const css = readFileSync(join(src, 'css', 'app.css'), 'utf8');
+const css = readdirSync(join(src, 'css')).filter((f) => f.endsWith('.css')).sort()
+  .map((f) => readFileSync(join(src, 'css', f), 'utf8')).join('\n');
 const js = readdirSync(join(src, 'js')).filter((f) => f.endsWith('.js')).sort()
   .map((f) => readFileSync(join(src, 'js', f), 'utf8')
     .replace(/\nif \(typeof module !== 'undefined' && module\.exports\) module\.exports = LS;\s*$/, '\n'))

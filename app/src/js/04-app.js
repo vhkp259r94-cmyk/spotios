@@ -73,15 +73,16 @@
   const hue = (id) => { let h = 17; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h) % 360; };
 
   // ---------- Tarjetas ----------
-  function card(it, listId, shape) {
-    return `<button class="card ${shape}" data-act="play" data-key="${esc(it.key)}" data-list="${esc(listId)}">
+  function card(it, listId, shape, idx) {
+    return `<button class="card ${shape}" style="--i:${Math.min(idx || 0, 12)}" data-act="play" data-key="${esc(it.key)}" data-list="${esc(listId)}">
       <div class="thumb" style="--h:${hue(it.id)}">${it.thumb ? `<img loading="lazy" alt="" src="${esc(it.thumb)}" onerror="this.remove()">` : ''}
-      ${it.duration > 0 ? `<span class="dur">${LS.formatTime(it.duration)}</span>` : (it.src === 'yt' ? '<span class="dur">EN DIRECTO</span>' : '')}</div>
+      ${it.duration > 0 ? `<span class="dur">${LS.formatTime(it.duration)}</span>` : (it.src === 'yt' ? '<span class="dur">EN DIRECTO</span>' : '')}<span class="play" aria-hidden="true">▶</span></div>
       <div class="t">${esc(it.title)}</div><div class="s">${esc(it.sub)}</div></button>`;
   }
 
   function setList(id, items) { lists.set(id, items.map((i) => i.key)); return items; }
-  const grid = (id, items, shape) => `<div class="grid ${shape}">${items.map((i) => card(i, id, shape)).join('')}</div>`;
+  const grid = (id, items, shape) => `<div class="grid ${shape}">${items.map((i, n) => card(i, id, shape, n)).join('')}</div>`;
+  const skeleton = (n) => `<div class="grid video">${Array.from({ length: n || 8 }, () => '<div class="skel"></div>').join('')}</div>`;
 
   // ---------- Navegación ----------
   const PAGES = ['home', 'music', 'videos', 'library', 'settings'];
@@ -100,6 +101,7 @@
   function render() {
     const id = ++S.renderId;
     const v = $('#view');
+    v.classList.remove('in'); void v.offsetWidth; v.classList.add('in');
     $('#main').scrollTop = 0;
     if (S.page === 'home') return renderHome(v, id);
     if (S.page === 'music') return renderMusic(v, id);
@@ -119,7 +121,7 @@
       ${q ? `<p class="hint">${sc === 'track' ? 'Canciones' : sc === 'video' ? 'Vídeos' : 'Resultados'} para «${esc(q)}».</p>` : ''}
       <section id="hero" class="hero" hidden></section>
       <section><h2 id="hitsTitle">${q ? 'Resultados en YouTube' : sc === 'track' ? 'Canciones del momento' : sc === 'video' ? 'Videoclips del momento' : 'Éxitos del momento'}</h2>
-      <div id="hits"><div class="busy">Cargando…</div></div></section>
+      <div id="hits">${skeleton()}</div></section>
       <section id="savedRow" hidden><h2>De tu biblioteca</h2><div id="savedGrid"></div></section>`;
     if (!q) { renderHero(); setTimeout(() => loadReleases(id), 1500); }
     const saved = store.library.items().slice(0, 8).map(savedItem);
@@ -182,7 +184,7 @@
     const q = S.query;
     v.innerHTML = `<h1>Música</h1><p class="hint">${q ? `Canciones para «${esc(q)}». Solo música, sin vídeo.` : 'Elige un género o busca un artista. Aquí solo hay música y suena sin vídeo.'}</p>
       ${q ? '' : chips(LS.GENRES.map((g) => [g, g]), S.genre, 'genre')}
-      <section><h2>${q ? 'Música en YouTube' : esc(S.genre)}</h2><div id="hits"><div class="busy">Cargando…</div></div></section>`;
+      <section><h2>${q ? 'Música en YouTube' : esc(S.genre)}</h2><div id="hits">${skeleton()}</div></section>`;
     await showResults('#hits', id, 'music');
   }
 
@@ -190,10 +192,10 @@
   async function renderVideos(v, id) {
     const q = S.query;
     v.innerHTML = `<h1>Vídeos</h1><p class="hint">${q ? `Vídeos para «${esc(q)}». Solo vídeos.` : 'Eventos, series, YouTubers y más. Busca para encontrar cualquier vídeo.'}</p>
-      <div id="hits">${q ? '<div class="busy">Cargando…</div>' : ''}</div>`;
+      <div id="hits">${q ? skeleton() : ''}</div>`;
     if (q) { await showResults('#hits', id, 'videos'); return; }
     if (S.shelves) { drawShelves(id); return; }
-    $('#hits').innerHTML = '<div class="busy">Cargando vídeos…</div>';
+    $('#hits').innerHTML = skeleton(6);
     if (S.shelvesLoading) return;
     S.shelvesLoading = true;
     try {
@@ -213,7 +215,7 @@
     const box = $('#hits');
     if (!S.shelves || !S.shelves.length) { box.innerHTML = `<p class="hint err">No se pudieron cargar los vídeos. ${esc(S.lastError || 'Comprueba la conexión.')}</p>`; return; }
     S.shelves.forEach((s, i) => lists.set('shelf' + i, s.items.map((x) => x.key)));
-    box.innerHTML = S.shelves.map((s, i) => `<section><h2>${esc(s.title)}</h2><div class="shelf">${s.items.map((it) => card(it, 'shelf' + i, 'video')).join('')}</div></section>`).join('');
+    box.innerHTML = S.shelves.map((s, i) => `<section><h2>${esc(s.title)}</h2><div class="shelf">${s.items.map((it, n) => card(it, 'shelf' + i, 'video', n)).join('')}</div></section>`).join('');
   }
 
   // ---------- Biblioteca (guardado, listas y descargas) ----------
@@ -279,6 +281,9 @@
   function renderSettings(v) {
     const s = store.settings.get();
     v.innerHTML = `<h1>Ajustes</h1>
+      <section class="panel"><h2>Aspecto</h2>
+        <label class="field">Estilo <select id="look"><option value="nsound" ${s.look !== 'clasico' ? 'selected' : ''}>Nsound (prueba)</option><option value="clasico" ${s.look === 'clasico' ? 'selected' : ''}>Clásico</option></select></label>
+        <p class="note">El estilo «Nsound» usa los colores del logo, brillo ambiental y animaciones suaves (se apagan solas si tu móvil tiene «reducir movimiento»).</p></section>
       <section class="panel"><h2>Ecualizador</h2>
         <label class="switch"><input type="checkbox" id="eqOn" ${s.eqEnabled ? 'checked' : ''}> Activar ecualizador</label>
         <label class="field">Ajuste <select id="eqPreset">${[...Object.keys(LS.EQ_PRESETS), LS.EQ_CUSTOM].map((n) => `<option ${n === s.eqPreset ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
@@ -348,7 +353,9 @@
     $('#elapsed').textContent = LS.formatTime(S.time);
     $('#total').textContent = LS.formatTime(S.duration);
     const p = $('#progress');
-    if (!p.dataset.drag) { p.max = Math.max(1, S.duration); p.value = Math.min(S.time, p.max); }
+    if (!p.dataset.drag) { p.max = Math.max(1, S.duration); p.value = Math.min(S.time, p.max); p.style.setProperty('--p', (100 * p.value / p.max) + '%'); }
+    document.body.classList.toggle('playing', st.playing);
+    syncNp();
     followLyrics();
   });
   Player.on('ended', next);
@@ -365,6 +372,8 @@
     const it = S.now;
     if (!it) return;
     document.body.classList.add('has-track');
+    document.body.style.setProperty('--h', hue(it.id));
+    updateNp();
     $('#nowTitle').textContent = it.title;
     $('#nowSub').textContent = it.sub + (it.src === 'yt' ? ' · YouTube' : '');
     $('#nowImg').src = it.thumb || '';
@@ -372,6 +381,61 @@
     $('#heart').textContent = store.library.has(it) ? '♥' : '♡';
     $('#heart').classList.toggle('on', store.library.has(it));
   }
+
+  // ---------- Pantalla «Reproduciendo» (estilo Nsound) ----------
+  const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) { /* sin vibración */ } };
+
+  function toggleHeart() {
+    if (!S.now) return;
+    store.library.toggle(S.now);
+    buzz();
+    updateBar();
+    for (const el of [$('#heart'), $('#npHeart')]) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+    if (S.page === 'library') render();
+  }
+
+  function updateNp() {
+    const it = S.now;
+    if (!it) return;
+    const img = $('#npImg');
+    const big = it.src === 'yt' ? `https://i.ytimg.com/vi/${it.id}/hq720.jpg` : (it.thumb || '');   // hq720 no trae bandas negras
+    img.onerror = () => { img.onerror = null; img.src = (it.thumb || '').replace('mqdefault', 'hqdefault'); };
+    if (img.getAttribute('src') !== big) img.src = big;
+    $('#npTitle').textContent = it.title;
+    $('#npSub').textContent = it.sub + (it.src === 'yt' ? ' · YouTube' : '');
+    const saved = store.library.has(it);
+    $('#npHeart').textContent = saved ? '♥' : '♡';
+    $('#npHeart').classList.toggle('on', saved);
+  }
+
+  function syncNp() {
+    if (!$('#np').classList.contains('open')) return;
+    $('#npPlay').textContent = S.playing ? '⏸' : '▶';
+    $('#npElapsed').textContent = LS.formatTime(S.time);
+    $('#npTotal').textContent = LS.formatTime(S.duration);
+    const p = $('#npProgress');
+    if (!p.dataset.drag) { p.max = Math.max(1, S.duration); p.value = Math.min(S.time, p.max); p.style.setProperty('--p', (100 * p.value / p.max) + '%'); }
+  }
+
+  const openNp = () => { if (!S.now) return; updateNp(); $('#np').classList.add('open'); syncNp(); };
+  const closeNp = () => $('#np').classList.remove('open');
+
+  $('.now').addEventListener('click', () => { if (document.body.classList.contains('fx')) openNp(); });
+  $('#npClose').onclick = closeNp;
+  $('#npPrev').onclick = prev;
+  $('#npNext').onclick = next;
+  $('#npPlay').onclick = () => { buzz(); Player.toggle(); };
+  $('#npHeart').onclick = toggleHeart;
+  $('#npAdd').onclick = (e) => { e.stopPropagation(); openAddMenu(); };
+  $('#npLyrics').onclick = () => { closeNp(); $('#lyricsBtn').click(); };
+  $('#npVideo').onclick = () => { closeNp(); if (S.now) showVideo(true); };
+  const npp = $('#npProgress');
+  npp.addEventListener('input', () => { npp.dataset.drag = '1'; $('#npElapsed').textContent = LS.formatTime(+npp.value); npp.style.setProperty('--p', (100 * npp.value / npp.max) + '%'); });
+  npp.addEventListener('change', () => { delete npp.dataset.drag; Player.seek(+npp.value); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeNp(); });
+  let swipeY = null;
+  $('#np').addEventListener('touchstart', (e) => { swipeY = e.touches[0].clientY; }, { passive: true });
+  $('#np').addEventListener('touchend', (e) => { if (swipeY !== null && e.changedTouches[0].clientY - swipeY > 110 && $('#np').scrollTop === 0) closeNp(); swipeY = null; }, { passive: true });
 
   // ---------- Letra ----------
   async function loadLyrics() {
@@ -444,7 +508,7 @@
   $('#prev').onclick = prev;
   $('#next').onclick = next;
   $('#play').onclick = () => { if (S.now) Player.toggle(); else { const k = lists.get('releases') || lists.get('home') || lists.get('music'); if (k && k.length) play(k[0], lists.has('releases') ? 'releases' : lists.has('home') ? 'home' : 'music'); } };
-  $('#heart').onclick = () => { if (!S.now) return; store.library.toggle(S.now); updateBar(); if (S.page === 'library') render(); };
+  $('#heart').onclick = toggleHeart;
   $('#addList').onclick = (e) => { e.stopPropagation(); openAddMenu(); };
   $('#lyricsBtn').onclick = () => { const l = $('#lyrics'); l.hidden = !l.hidden; if (!l.hidden) { if (S.now) loadLyrics(); else $('#lyricsInfo').textContent = 'Reproduce una canción para ver su letra.'; } };
   $('#lyricsClose').onclick = () => { $('#lyrics').hidden = true; };
@@ -454,7 +518,7 @@
   $('#dlBtn').onclick = () => { go('#/library/downloads'); if (S.now && S.now.src === 'yt') toast('YouTube no permite descargar sus vídeos. En Descargas solo hay contenido libre (Creative Commons).'); };
 
   const prog = $('#progress');
-  prog.addEventListener('input', () => { prog.dataset.drag = '1'; $('#elapsed').textContent = LS.formatTime(+prog.value); });
+  prog.addEventListener('input', () => { prog.dataset.drag = '1'; $('#elapsed').textContent = LS.formatTime(+prog.value); prog.style.setProperty('--p', (100 * prog.value / prog.max) + '%'); });
   prog.addEventListener('change', () => { delete prog.dataset.drag; Player.seek(+prog.value); });
   $('#volume').addEventListener('input', (e) => { Player.setVolume(+e.target.value); store.settings.set({ volume: +e.target.value }); });
 
@@ -475,6 +539,7 @@
     const t = e.target;
     if (t.id === 'eqOn') { store.settings.set({ eqEnabled: t.checked }); applyEq(); refreshEqStatus(); }
     if (t.id === 'eqPreset' && LS.EQ_PRESETS[t.value]) { store.settings.set({ eqPreset: t.value, eqBands: LS.EQ_PRESETS[t.value] }); applyEq(); render(); }
+    if (t.id === 'look') { store.settings.set({ look: t.value }); document.body.classList.toggle('fx', t.value !== 'clasico'); }
     if (t.id === 'adOn') { store.settings.set({ adBlock: t.checked }); Native.call('setAdBlock', { enabled: t.checked }).catch(() => {}); }
   });
 
@@ -494,6 +559,7 @@
   // ---------- Arranque ----------
   Player.init();
   const s0 = store.settings.get();
+  document.body.classList.toggle('fx', s0.look !== 'clasico');
   $('#volume').value = s0.volume;
   Player.setVolume(s0.volume);
   applyEq();

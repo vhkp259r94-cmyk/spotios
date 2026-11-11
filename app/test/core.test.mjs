@@ -230,3 +230,13 @@ test('diagnóstico de páginas de YouTube sin vídeos', () => {
   assert.match(LS.diagnoseYouTube('<html>nada</html>'), /otro formato/);
   assert.match(LS.diagnoseYouTube('var ytInitialData = {};'), /sin vídeos/);
 });
+
+test('ajustes: estilo Nsound por defecto, Clásico se conserva y lo raro se corrige', () => {
+  const m = new Map();
+  const st = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)) };
+  const s = LS.createStores(st);
+  assert.equal(s.settings.get().look, 'nsound');
+  s.settings.set({ look: 'clasico' });
+  assert.equal(LS.createStores(st).settings.get().look, 'clasico');
+  assert.equal(LS.normalizeSettings({ look: 'raro' }).look, 'nsound');
+});
