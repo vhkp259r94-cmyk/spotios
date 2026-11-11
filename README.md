@@ -15,6 +15,9 @@ El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al 
 > No se extraen ni descargan streams. Un filtro de red bloquea servidores de anuncios y rastreo conocidos;
 > los anuncios que YouTube sirve desde sus propios servidores de vídeo pueden seguir apareciendo.
 
+> **Windows:** Inicio con éxitos del momento, Música por géneros (solo sonido), vídeos libres, letra sincronizada
+> (LRCLIB, base de datos abierta), Mi biblioteca y listas de reproducción propias. Sin cuentas ni suscripciones.
+
 ## Plan por fases
 
 | Fase | Objetivo | Hitos |
@@ -88,5 +91,5 @@ En macOS: `brew install xcodegen && cd ios && xcodegen && open LibreStream.xcode
 ## Release
 
 ```bash
-git tag v0.3.1 && git push origin v0.3.1
+git tag v0.4.0 && git push origin v0.4.0
 ```

@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:LibreStream.App"
+    xmlns:core="using:LibreStream.Core"
     Title="LibreStream">
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -70,7 +71,7 @@
         <!-- Navegación + contenido -->
         <NavigationView x:Name="Nav" Grid.Row="1" PaneDisplayMode="Left" OpenPaneLength="220"
                         IsBackButtonVisible="Collapsed" IsSettingsVisible="False" IsPaneToggleButtonVisible="False"
-                        SelectionChanged="Nav_SelectionChanged">
+                        SelectionChanged="Nav_SelectionChanged" ItemInvoked="Nav_ItemInvoked">
             <NavigationView.AutoSuggestBox>
                 <AutoSuggestBox x:Name="Search" PlaceholderText="Buscar" QueryIcon="Find" TextChanged="Search_TextChanged" QuerySubmitted="Search_QuerySubmitted" />
             </NavigationView.AutoSuggestBox>
@@ -80,14 +81,51 @@
                 <NavigationViewItem Content="Vídeos" Icon="Video" Tag="video" />
                 <NavigationViewItemSeparator />
                 <NavigationViewItem Content="Mi biblioteca" Icon="Library" Tag="library" />
+                <NavigationViewItemHeader Content="Tus listas" />
+                <NavigationViewItem x:Name="NewListItem" Content="Nueva lista" Icon="Add" Tag="newlist" SelectsOnInvoked="False" />
             </NavigationView.MenuItems>
 
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Letra sincronizada (LRCLIB) -->
+                <Grid x:Name="LyricsPanel" Grid.Column="1" Width="340" Padding="16,20,12,12" RowSpacing="8"
+                      Background="#33000000" BorderBrush="#22FFFFFF" BorderThickness="1,0,0,0" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Letra" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock x:Name="LyricsInfo" Grid.Row="1" Opacity="0.7" TextWrapping="Wrap" />
+                    <ListView x:Name="LyricsList" Grid.Row="2" SelectionMode="Single" IsItemClickEnabled="True" ItemClick="Lyrics_ItemClick">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="core:LyricLine">
+                                <TextBlock Text="{x:Bind Text}" TextWrapping="Wrap" FontSize="16" FontWeight="SemiBold" Margin="0,6" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+
                 <ScrollViewer x:Name="Browse" VerticalScrollBarVisibility="Auto">
                     <StackPanel Padding="28,20,28,28" Spacing="14">
 
                         <TextBlock x:Name="PageTitle" Text="Inicio" Style="{StaticResource TitleTextBlockStyle}" Margin="8,0,0,0" />
                         <TextBlock x:Name="PageHint" Opacity="0.7" Margin="8,-8,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+
+                        <StackPanel x:Name="PlaylistActions" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" Visibility="Collapsed">
+                            <Button Style="{StaticResource AccentButtonStyle}" Click="PlayAll_Click" AutomationProperties.Name="Reproducir todo">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="Play" />
+                                    <TextBlock Text="Reproducir todo" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Button>
+                            <Button Content="Eliminar lista" Click="DeleteList_Click" />
+                        </StackPanel>
+                        <StackPanel x:Name="Genres" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" Visibility="Collapsed" />
 
                         <!-- Destacado -->
                         <Grid x:Name="Hero" Height="280" CornerRadius="14" Visibility="Collapsed">
@@ -115,6 +153,19 @@
                         </Grid>
 
                         <TextBlock x:Name="Status" Foreground="#FF8A80" TextWrapping="Wrap" Visibility="Collapsed" />
+                        <StackPanel x:Name="YouTubeSection" Spacing="6" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal" Spacing="10" Margin="8,8,0,0">
+                                <TextBlock x:Name="YouTubeTitle" Text="YouTube" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <ProgressRing x:Name="YouTubeBusy" IsActive="False" Width="18" Height="18" />
+                            </StackPanel>
+                            <TextBlock x:Name="YouTubeInfo" Opacity="0.7" Margin="8,0,0,0" />
+                            <ItemsRepeater x:Name="YouTubeRepeater" ItemTemplate="{StaticResource VideoCard}">
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
+                                </ItemsRepeater.Layout>
+                            </ItemsRepeater>
+                        </StackPanel>
+
                         <StackPanel x:Name="VideosSection" Spacing="6">
                             <TextBlock x:Name="VideosTitle" Text="Películas y cortos" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
                             <ItemsRepeater x:Name="VideosRepeater" ItemTemplate="{StaticResource VideoCard}">
@@ -127,19 +178,6 @@
                         <StackPanel x:Name="TracksSection" Spacing="6">
                             <TextBlock x:Name="TracksTitle" Text="Música" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
                             <ItemsRepeater x:Name="TracksRepeater" ItemTemplate="{StaticResource TrackCard}">
-                                <ItemsRepeater.Layout>
-                                    <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
-                        </StackPanel>
-
-                        <StackPanel x:Name="YouTubeSection" Spacing="6" Visibility="Collapsed">
-                            <StackPanel Orientation="Horizontal" Spacing="10" Margin="8,8,0,0">
-                                <TextBlock x:Name="YouTubeTitle" Text="YouTube" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                <ProgressRing x:Name="YouTubeBusy" IsActive="False" Width="18" Height="18" />
-                            </StackPanel>
-                            <TextBlock x:Name="YouTubeInfo" Opacity="0.7" Margin="8,0,0,0" />
-                            <ItemsRepeater x:Name="YouTubeRepeater" ItemTemplate="{StaticResource VideoCard}">
                                 <ItemsRepeater.Layout>
                                     <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
                                 </ItemsRepeater.Layout>
@@ -189,7 +227,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="410" />
             </Grid.ColumnDefinitions>
 
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
@@ -230,8 +268,17 @@
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Añadir a una lista" AutomationProperties.Name="Añadir a lista">
+                    <SymbolIcon Symbol="Add" />
+                    <Button.Flyout>
+                        <MenuFlyout x:Name="PlaylistMenu" Opening="PlaylistMenu_Opening" />
+                    </Button.Flyout>
+                </Button>
                 <Button Click="Save_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Guardar en Mi biblioteca" AutomationProperties.Name="Guardar">
                     <FontIcon x:Name="SaveIcon" Glyph="&#xEB51;" />
+                </Button>
+                <Button Click="Lyrics_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Mostrar u ocultar la letra" AutomationProperties.Name="Letra">
+                    <TextBlock Text="Letra" FontWeight="SemiBold" />
                 </Button>
                 <Button Click="ShowVideo_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Mostrar u ocultar el vídeo" AutomationProperties.Name="Mostrar vídeo">
                     <SymbolIcon Symbol="SlideShow" />

@@ -58,6 +58,31 @@ public class YouTubeAndLibraryTests
     public void AdBlockRules(string url, bool blocked) => Assert.Equal(blocked, AdBlock.IsBlocked(url));
 
     [Fact]
+    public void PlaylistsCreateToggleDeleteAndPersist()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "librestream-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var item = new SavedItem("youtube", "abcdefghijk", "Canción", "Canal", 205, null);
+            var store = new PlaylistStore(dir);
+            var list = store.Create("  Favoritas  ");
+            Assert.Equal("Favoritas", list.Name);
+            Assert.True(store.Toggle(list.Id, item));
+            Assert.True(new PlaylistStore(dir).Contains(list.Id, item));
+            Assert.False(new PlaylistStore(dir).Toggle(list.Id, item));
+            Assert.False(store.Toggle("no-existe", item));
+            var reloaded = new PlaylistStore(dir);
+            Assert.Single(reloaded.All);
+            reloaded.Delete(list.Id);
+            Assert.Empty(new PlaylistStore(dir).All);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public void LibraryTogglesAndPersists()
     {
         var dir = Path.Combine(Path.GetTempPath(), "librestream-test-" + Guid.NewGuid().ToString("N"));

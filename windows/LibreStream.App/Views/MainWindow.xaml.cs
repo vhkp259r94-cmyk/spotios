@@ -21,6 +21,7 @@ public sealed partial class MainWindow : Window
     private readonly AudioPlayerManager _player = AudioPlayerManager.Shared;
     private readonly CatalogService _catalog = new(new Uri(CatalogUrl), DataDir);
     private readonly LibraryStore _library = new(DataDir);
+    private readonly PlaylistStore _playlists = new(DataDir);
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly DispatcherTimer _searchDelay = new() { Interval = TimeSpan.FromMilliseconds(700) };
@@ -43,6 +44,14 @@ public sealed partial class MainWindow : Window
     private bool _updatingProgress;
     private bool _audioOnly;
     private bool _ytLayerShown;
+
+    // Géneros (apartado Música) y letra
+    private static readonly string[] GenreNames = ["Éxitos", "Reggaetón", "Pop", "Rock", "Electrónica", "Hip hop", "Latino", "Lo-fi"];
+    private string _genre = GenreNames[0];
+    private Lyrics? _lyrics;
+    private string _lyricsFor = "";
+    private int _lyricIndex = -1;
+    private CancellationTokenSource? _lyricsCts;
 
     // Estado del reproductor de YouTube embebido
     private bool _ytReady, _ytPlaying;
@@ -68,6 +77,13 @@ public sealed partial class MainWindow : Window
         _searchDelay.Tick += (_, _) => { _searchDelay.Stop(); _ = SearchYouTubeAsync(Search.Text); };
 
         ShowYouTubeLayer(false);
+        RebuildPlaylistNav();
+        foreach (var name in GenreNames)
+        {
+            var chip = new Button { Content = name, Tag = name, CornerRadius = new CornerRadius(16), Padding = new Thickness(14, 6, 14, 6) };
+            chip.Click += Genre_Click;
+            Genres.Children.Add(chip);
+        }
         _ = LoadAsync();
         _ = InitYouTubePlayerAsync();
     }
@@ -85,6 +101,7 @@ public sealed partial class MainWindow : Window
             ShowStatus($"No se pudo actualizar el catálogo: {ex.Message}");
         }
         ApplyFilter();
+        _ = SearchYouTubeAsync(Search.Text);
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => Browse.ChangeView(null, 0, null, true));
     }
 
@@ -98,13 +115,14 @@ public sealed partial class MainWindow : Window
     {
         var q = MetadataMatcher.Fold(Search.Text ?? "");
         bool Match(string text) => q.Length == 0 || MetadataMatcher.Fold(text).Contains(q);
-        var library = _kind == "library";
+        var playlist = _kind.StartsWith("pl:", StringComparison.Ordinal) ? _playlists.Find(_kind[3..]) : null;
+        var library = _kind == "library" || playlist is not null;
 
         var items = library ? [] : _catalog.Items
             .Where(i => Match($"{i.Artist} {i.Title} {string.Join(' ', i.Genres ?? [])}")).ToList();
         _videos = _kind == "track" ? [] : items.Where(i => i.Kind != ItemKind.Track).Select(i => new MediaCard(i)).ToList();
         _tracks = _kind == "video" ? [] : items.Where(i => i.Kind == ItemKind.Track).Select(i => new MediaCard(i)).ToList();
-        _saved = !library ? [] : _library.Items
+        _saved = !library ? [] : ((IEnumerable<SavedItem>?)playlist?.Items ?? _library.Items)
             .Where(s => Match($"{s.Title} {s.Subtitle}"))
             .Select(s => new MediaCard(s, _catalog.Items.FirstOrDefault(i => i.Id == s.Id)))
             .Where(c => c.IsPlayable).ToList();
@@ -116,23 +134,38 @@ public sealed partial class MainWindow : Window
                 .Select(x => new MediaCard(x, _catalog.Items.FirstOrDefault(i => i.Id == x.Id)))
                 .Where(c => c.IsPlayable).ToList();
 
-        var showYouTube = !library && q.Length > 0;
-        if (!showYouTube) { _youtube = []; _youtubeQuery = ""; }
+        var showYouTube = !library && (q.Length > 0 || _kind is "track" or "all");
+        if (!showYouTube || !_youtubeQuery.StartsWith(_kind + ":", StringComparison.Ordinal)) { _youtube = []; _youtubeQuery = ""; }
+        Genres.Visibility = Vis(_kind == "track" && q.Length == 0);
+        foreach (var child in Genres.Children.OfType<Button>())
+            child.Style = (Style)Application.Current.Resources[(string)child.Tag == _genre ? "AccentButtonStyle" : "DefaultButtonStyle"];
 
         // Título y ayuda de cada apartado
         var raw = Search.Text?.Trim() ?? "";
         (PageTitle.Text, var hint) = _kind switch
         {
-            "track" => ("Música", q.Length > 0 ? $"Canciones para «{raw}». En este apartado YouTube suena sin vídeo." : "Canciones del catálogo libre. Busca para añadir música de YouTube (solo sonido)."),
+            "track" => ("Música", q.Length > 0 ? $"Canciones para «{raw}». En este apartado YouTube suena sin vídeo." : "Elige un género o busca un artista. Aquí YouTube suena sin vídeo."),
             "video" => ("Vídeos", q.Length > 0 ? $"Vídeos para «{raw}»." : "Películas y cortos del catálogo libre. Busca para ver vídeos de YouTube."),
             "library" => ("Mi biblioteca", q.Length > 0 ? $"Guardados que coinciden con «{raw}»." : "Todo lo que has guardado con el corazón."),
             _ => ("Inicio", q.Length > 0 ? $"Todo lo encontrado para «{raw}»." : ""),
         };
         PageHint.Text = hint;
         PageHint.Visibility = Vis(hint.Length > 0);
+        if (playlist is not null)
+        {
+            PageTitle.Text = playlist.Name;
+            PageHint.Text = playlist.Items.Count == 1 ? "Lista · 1 elemento" : $"Lista · {playlist.Items.Count} elementos";
+            PageHint.Visibility = Visibility.Visible;
+        }
+        PlaylistActions.Visibility = Vis(playlist is not null);
         VideosTitle.Text = q.Length > 0 ? "Vídeos del catálogo libre" : "Películas y cortos";
         TracksTitle.Text = q.Length > 0 ? "Música del catálogo libre" : _kind == "track" ? "Canciones" : "Música";
-        YouTubeTitle.Text = _kind == "track" ? "Música en YouTube" : "Vídeos de YouTube";
+        YouTubeTitle.Text = _kind switch
+        {
+            "track" => q.Length > 0 ? "Música en YouTube" : _genre,
+            "all" when q.Length == 0 => "Éxitos del momento",
+            _ => "Vídeos de YouTube",
+        };
         SavedTitle.Text = library ? (q.Length > 0 ? "Resultados" : "Guardado") : "De tu biblioteca";
         var template = (DataTemplate)Root.Resources[_kind == "track" ? "TrackCard" : "VideoCard"];
         if (!ReferenceEquals(YouTubeRepeater.ItemTemplate, template)) YouTubeRepeater.ItemTemplate = template;
@@ -145,11 +178,16 @@ public sealed partial class MainWindow : Window
         TracksSection.Visibility = Vis(_tracks.Count > 0);
         SavedSection.Visibility = Vis(library || (home && _saved.Count > 0));
         SavedEmpty.Text = q.Length > 0 ? "Nada guardado coincide con la búsqueda." : "Aún no has guardado nada. Reproduce algo y pulsa el corazón de la barra inferior.";
+        if (playlist is not null)
+        {
+            SavedTitle.Text = "En esta lista";
+            if (q.Length == 0) SavedEmpty.Text = "Lista vacía. Reproduce algo y pulsa + en la barra inferior para añadirlo.";
+        }
         SavedEmpty.Visibility = Vis(library && _saved.Count == 0);
         YouTubeSection.Visibility = Vis(showYouTube);
 
         // Destacado: solo en la vista sin búsqueda
-        _featured = q.Length == 0 && !library ? _videos.FirstOrDefault() ?? _tracks.FirstOrDefault() : null;
+        _featured = q.Length == 0 && _kind == "all" ? _videos.FirstOrDefault() ?? _tracks.FirstOrDefault() : null;
         Hero.Visibility = Vis(_featured is not null);
         if (_featured is not null)
         {
@@ -166,10 +204,17 @@ public sealed partial class MainWindow : Window
 
     private async Task SearchYouTubeAsync(string? text)
     {
-        var query = (text ?? "").Trim();
-        var key = $"{_kind}:{query}";
-        if (query.Length < 2 || _kind == "library" || key == _youtubeQuery) return;
+        var typed = (text ?? "").Trim();
         var kind = _kind;
+        if (kind == "library" || kind.StartsWith("pl:", StringComparison.Ordinal) || typed.Length == 1) return;
+        // Sin texto: Música muestra el género elegido e Inicio los éxitos del momento
+        var query = typed.Length > 0 ? (kind == "track" ? typed + " audio" : typed)
+            : kind == "track" ? (_genre == "Éxitos" ? $"official music video {DateTime.Now.Year}" : $"{_genre} official music video")
+            : kind == "all" ? $"official music video {DateTime.Now.Year}"
+            : "";
+        var musicOnly = kind == "track" || typed.Length == 0;
+        var key = $"{kind}:{query}";
+        if (query.Length == 0 || key == _youtubeQuery) return;
 
         _searchCts?.Cancel();
         var cts = _searchCts = new CancellationTokenSource();
@@ -178,9 +223,9 @@ public sealed partial class MainWindow : Window
         try
         {
             // En Música se buscan pistas de audio; en Vídeos se excluyen los directos
-            var results = await YouTubeSearch.SearchAsync(_http, kind == "track" ? query + " audio" : query, cts.Token);
+            var results = await YouTubeSearch.SearchAsync(_http, query, cts.Token, videosOnly: musicOnly);
             if (cts.IsCancellationRequested || kind != _kind) return;
-            if (kind == "track") results = results.Where(v => v.DurationSec is > 0 and <= 900).ToList();
+            if (musicOnly) results = results.Where(v => v.DurationSec is > 60 and <= 900).ToList();
             _youtubeQuery = key;
             _youtube = results.Select(v => new MediaCard(v)).ToList();
             YouTubeRepeater.ItemsSource = _youtube;
@@ -279,6 +324,161 @@ public sealed partial class MainWindow : Window
         NowTile.Background = _now.Tile;
         NowImage.Source = _now.Artwork;
         SaveIcon.Glyph = _library.Contains(_now.Source, _now.Id) ? "" : "";
+        if (LyricsPanel.Visibility == Visibility.Visible) _ = LoadLyricsAsync();
+    }
+
+    // ===================== Letra sincronizada =====================
+
+    private async Task LoadLyricsAsync()
+    {
+        if (_now is not { } card) return;
+        var key = $"{card.Source}:{card.Id}";
+        if (key == _lyricsFor) return;
+        _lyricsFor = key;
+        _lyricsCts?.Cancel();
+        var cts = _lyricsCts = new CancellationTokenSource();
+        _lyrics = null; _lyricIndex = -1;
+        LyricsList.ItemsSource = null;
+        LyricsInfo.Text = "Buscando la letra…";
+
+        var (artist, title) = card.Item is { } item
+            ? (item.Artist, item.Title)
+            : LyricsService.GuessTrack(card.Title, card.Subtitle);
+        try
+        {
+            var found = await LyricsService.FindAsync(_http, artist, title, card.DurationSec, cts.Token);
+            if (cts.IsCancellationRequested) return;
+            _lyrics = found;
+            LyricsList.ItemsSource = found?.Lines;
+            LyricsInfo.Text = found is null ? $"No hay letra para «{title}»."
+                : found.Synced ? $"{artist} — {title}" : $"{artist} — {title} (sin sincronizar)";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            LyricsInfo.Text = $"No se pudo cargar la letra: {ex.Message}";
+        }
+    }
+
+    private void FollowLyrics(double position)
+    {
+        if (_lyrics is not { Synced: true } lyrics || LyricsPanel.Visibility != Visibility.Visible) return;
+        var index = LyricsService.IndexAt(lyrics.Lines, position + 0.3);
+        if (index == _lyricIndex) return;
+        _lyricIndex = index;
+        LyricsList.SelectedIndex = index;
+        if (index >= 0) LyricsList.ScrollIntoView(lyrics.Lines[Math.Min(index + 3, lyrics.Lines.Count - 1)]);
+    }
+
+    private void Lyrics_Click(object sender, RoutedEventArgs e)
+    {
+        LyricsPanel.Visibility = Vis(LyricsPanel.Visibility != Visibility.Visible);
+        if (LyricsPanel.Visibility != Visibility.Visible) return;
+        if (_now is null) LyricsInfo.Text = "Reproduce una canción para ver su letra.";
+        else _ = LoadLyricsAsync();
+    }
+
+    private void Lyrics_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not LyricLine { Time: >= 0 } line) return;
+        if (_mode == Mode.YouTube)
+        {
+            _ytTime = line.Time;
+            RunPlayerScript($"cmd('seek', {line.Time.ToString("0.##", CultureInfo.InvariantCulture)})");
+        }
+        else if (_mode == Mode.Native) _player.Seek(TimeSpan.FromSeconds(line.Time));
+    }
+
+    // ===================== Listas de reproducción =====================
+
+    private void RebuildPlaylistNav()
+    {
+        foreach (var old in Nav.MenuItems.OfType<NavigationViewItem>()
+                     .Where(i => (i.Tag as string)?.StartsWith("pl:", StringComparison.Ordinal) == true).ToList())
+            Nav.MenuItems.Remove(old);
+        var at = Nav.MenuItems.IndexOf(NewListItem);
+        foreach (var list in _playlists.All)
+            Nav.MenuItems.Insert(at++, new NavigationViewItem { Content = list.Name, Tag = "pl:" + list.Id, Icon = new SymbolIcon(Symbol.MusicInfo) });
+    }
+
+    private void SelectNav(string tag)
+    {
+        if (Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == tag) is { } item)
+            Nav.SelectedItem = item;
+    }
+
+    private async Task CreatePlaylistAsync(bool addCurrent)
+    {
+        var box = new TextBox { PlaceholderText = "Nombre de la lista", MaxLength = 60 };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Root.XamlRoot, Title = "Nueva lista", Content = box,
+            PrimaryButtonText = "Crear", CloseButtonText = "Cancelar", DefaultButton = ContentDialogButton.Primary,
+            RequestedTheme = ElementTheme.Dark,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || string.IsNullOrWhiteSpace(box.Text)) return;
+        var list = _playlists.Create(box.Text);
+        if (addCurrent && _now is not null) _playlists.Toggle(list.Id, _now.ToSaved());
+        RebuildPlaylistNav();
+        SelectNav("pl:" + list.Id);
+    }
+
+    private void Nav_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs e)
+    {
+        if (e.InvokedItemContainer?.Tag as string == "newlist") _ = CreatePlaylistAsync(addCurrent: false);
+    }
+
+    private void PlaylistMenu_Opening(object? sender, object e)
+    {
+        PlaylistMenu.Items.Clear();
+        if (_now is not { } card)
+        {
+            PlaylistMenu.Items.Add(new MenuFlyoutItem { Text = "Reproduce algo para añadirlo a una lista", IsEnabled = false });
+            return;
+        }
+        var saved = card.ToSaved();
+        foreach (var list in _playlists.All)
+        {
+            var entry = new ToggleMenuFlyoutItem { Text = list.Name, IsChecked = _playlists.Contains(list.Id, saved) };
+            var id = list.Id;
+            entry.Click += (_, _) =>
+            {
+                _playlists.Toggle(id, saved);
+                if (_kind == "pl:" + id) ApplyFilter();
+            };
+            PlaylistMenu.Items.Add(entry);
+        }
+        if (_playlists.All.Count > 0) PlaylistMenu.Items.Add(new MenuFlyoutSeparator());
+        var create = new MenuFlyoutItem { Text = "Nueva lista con esta canción…", Icon = new SymbolIcon(Symbol.Add) };
+        create.Click += (_, _) => _ = CreatePlaylistAsync(addCurrent: true);
+        PlaylistMenu.Items.Add(create);
+    }
+
+    private void PlayAll_Click(object sender, RoutedEventArgs e)
+    {
+        if (_saved.Count > 0) Play(_saved[0], _saved);
+    }
+
+    private async void DeleteList_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_kind.StartsWith("pl:", StringComparison.Ordinal) || _playlists.Find(_kind[3..]) is not { } list) return;
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Root.XamlRoot, Title = $"¿Eliminar «{list.Name}»?",
+            Content = "Se borra la lista, no las canciones guardadas en Mi biblioteca.",
+            PrimaryButtonText = "Eliminar", CloseButtonText = "Cancelar", RequestedTheme = ElementTheme.Dark,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        _playlists.Delete(list.Id);
+        RebuildPlaylistNav();
+        SelectNav("all");
+    }
+
+    private void Genre_Click(object sender, RoutedEventArgs e)
+    {
+        _genre = (string)((Button)sender).Tag;
+        ApplyFilter();
+        _ = SearchYouTubeAsync(Search.Text);
     }
 
     private void UpdateProgress()
@@ -301,6 +501,7 @@ public sealed partial class MainWindow : Window
         Progress.Value = Math.Min(pos.TotalSeconds, Progress.Maximum);
         _updatingProgress = false;
 
+        FollowLyrics(pos.TotalSeconds);
         Elapsed.Text = MediaCard.Format(pos);
         Total.Text = MediaCard.Format(total);
     }

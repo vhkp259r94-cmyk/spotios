@@ -15,6 +15,9 @@ mantenerse **idénticos**: si cambias una regex, cámbiala en los tres y en sus 
 | Cambiar las tarjetas (portada, degradado, textos) | — | `LibreStream.App/Views/MediaCard.cs` | — |
 | Cambiar la búsqueda de YouTube | (pendiente) | `LibreStream.Core/Services/YouTube/YouTubeSearch.cs` | — |
 | Cambiar el reproductor embebido de YouTube | (pendiente) | `LibreStream.App/Assets/player.html` + `Views/MainWindow.xaml.cs` | — |
+| Cambiar las letras sincronizadas | (pendiente) | `LibreStream.Core/Services/Lyrics/LyricsService.cs` (fuente: LRCLIB) | — |
+| Cambiar las listas de reproducción | (pendiente) | `LibreStream.Core/Services/Library/PlaylistStore.cs` | — |
+| Cambiar los géneros de Música | (pendiente) | `LibreStream.App/Views/MainWindow.xaml.cs` (`GenreNames`) | — |
 | Cambiar la biblioteca guardada | (pendiente) | `LibreStream.Core/Services/Library/LibraryStore.cs` | — |
 | Añadir/quitar dominios del bloqueo de anuncios | (pendiente) | `LibreStream.Core/Services/Privacy/AdBlock.cs` | — |
 | Cambiar la URL del catálogo | `ios/project.yml` (`LSCatalogURL`) | `Views/MainWindow.xaml.cs` (`CatalogUrl`) | — |
@@ -35,5 +38,5 @@ dotnet test windows/LibreStream.Core.Tests   # si tienes .NET 8
 
 ## Publicar una versión
 ```bash
-git tag v0.3.1 && git push origin v0.3.1   # genera .ipa y .zip de Windows en Releases
+git tag v0.4.0 && git push origin v0.4.0   # genera .ipa y .zip de Windows en Releases
 ```

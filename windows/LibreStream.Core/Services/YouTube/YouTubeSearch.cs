@@ -24,9 +24,11 @@ public static partial class YouTubeSearch
 
     public static bool IsValidId(string? id) => id is not null && VideoId().IsMatch(id);
 
-    public static async Task<List<YouTubeVideo>> SearchAsync(HttpClient http, string query, CancellationToken ct = default)
+    public static async Task<List<YouTubeVideo>> SearchAsync(HttpClient http, string query, CancellationToken ct = default, bool videosOnly = false)
     {
-        var url = "https://www.youtube.com/results?search_query=" + Uri.EscapeDataString(query.Trim());
+        // sp=EgIQAQ== es el filtro público "Tipo: vídeo" (excluye listas, canales y directos agrupados)
+        var url = "https://www.youtube.com/results?search_query=" + Uri.EscapeDataString(query.Trim())
+            + (videosOnly ? "&sp=EgIQAQ%3D%3D" : "");
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.TryAddWithoutValidation("User-Agent",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36");
