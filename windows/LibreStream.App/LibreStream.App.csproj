@@ -12,6 +12,8 @@
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <!-- App portable sin MSIX: se distribuye como .zip y no requiere firma -->
     <WindowsPackageType>None</WindowsPackageType>
+    <!-- Necesario para compilar WinUI con dotnet CLI (sin Visual Studio) -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <Version>0.1.0</Version>

@@ -38,9 +38,11 @@ jobs:
 
       - name: Tests unitarios
         run: |
+          SIM=$(xcrun simctl list devices available | grep -m1 -E '^ +iPhone' | grep -oE '[0-9A-F]{8}-[0-9A-F-]{27}')
+          test -n "$SIM" || { echo "::error::No hay simulador de iPhone disponible"; exit 1; }
           xcodebuild test \
             -project LibreStream.xcodeproj -scheme LibreStream \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "platform=iOS Simulator,id=$SIM" \
             CODE_SIGNING_ALLOWED=NO | xcpretty || exit ${PIPESTATUS[0]}
         shell: bash
 
