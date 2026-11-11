@@ -33,14 +33,20 @@ El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al 
 ├── ios/
 │   ├── project.yml            # XcodeGen
 │   ├── LibreStream/
-│   │   ├── App/LibreStreamApp.swift
-│   │   ├── Core/{MetadataMatcher,AudioPlayerManager,CatalogService,Models}.swift
-│   │   └── Resources/Info.plist
-│   └── LibreStreamTests/MetadataMatcherTests.swift
+│   │   ├── App/               # LibreStreamApp.swift (punto de entrada)
+│   │   ├── Models/            # Models.swift (reflejan el JSON Schema)
+│   │   ├── Services/
+│   │   │   ├── Catalog/       # CatalogService.swift
+│   │   │   ├── Matching/      # MetadataMatcher.swift
+│   │   │   └── Playback/      # AudioPlayerManager.swift
+│   │   ├── Views/{Library,Player}/
+│   │   └── Resources/
+│   └── LibreStreamTests/
 ├── windows/
-│   ├── LibreStream.Core/       # MetadataMatcher.cs, Catalog.cs (net8.0)
-│   ├── LibreStream.Core.Tests/ # xUnit
-│   └── LibreStream.App/        # WinUI 3: AudioPlayerManager.cs, MainWindow
+│   ├── LibreStream.Core/      # Models/, Services/{Catalog,Matching}/
+│   ├── LibreStream.Core.Tests/# Matching/ (xUnit)
+│   └── LibreStream.App/       # Services/AudioPlayerManager.cs, Views/MainWindow
+├── docs/MODIFICAR.md          # Guía: dónde tocar cada cosa
 └── tools/
     ├── validate_catalog.py    # Validación JSON Schema + dedupe
     └── test_title_regex.py    # Casos borde de regex (espejo del Swift)
@@ -60,6 +66,8 @@ flowchart LR
   C -->|HTTPS GET + ETag| W[CatalogService .NET<br/>Windows]
   W --> X[MediaPlayer + SMTC<br/>WinUI 3]
 ```
+
+> ¿Quieres modificar algo? Mira [docs/MODIFICAR.md](docs/MODIFICAR.md).
 
 ## Desarrollo
 
