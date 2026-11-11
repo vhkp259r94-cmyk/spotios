@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace LibreStream.Core;
 
-public sealed record YouTubeVideo(string Id, string Title, string Channel, double DurationSec)
+public sealed record YouTubeVideo(string Id, string Title, string Channel, double DurationSec, string? Published = null)
 {
     public bool IsLive => DurationSec <= 0;
     public Uri Thumbnail => new($"https://i.ytimg.com/vi/{Id}/mqdefault.jpg");
@@ -24,11 +24,11 @@ public static partial class YouTubeSearch
 
     public static bool IsValidId(string? id) => id is not null && VideoId().IsMatch(id);
 
-    public static async Task<List<YouTubeVideo>> SearchAsync(HttpClient http, string query, CancellationToken ct = default, bool videosOnly = false)
+    public static async Task<List<YouTubeVideo>> SearchAsync(HttpClient http, string query, CancellationToken ct = default, bool videosOnly = false, bool thisWeek = false)
     {
         // sp=EgIQAQ== es el filtro público "Tipo: vídeo" (excluye listas, canales y directos agrupados)
         var url = "https://www.youtube.com/results?search_query=" + Uri.EscapeDataString(query.Trim())
-            + (videosOnly ? "&sp=EgIQAQ%3D%3D" : "");
+            + (thisWeek ? "&sp=EgQIAxAB" : videosOnly ? "&sp=EgIQAQ%3D%3D" : ""); // EgQIAxAB = "Esta semana" + "Vídeo"
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.TryAddWithoutValidation("User-Agent",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36");
@@ -78,7 +78,8 @@ public static partial class YouTubeSearch
         if (title.Length == 0) return null;
         var channel = FirstRun(v, "ownerText") ?? FirstRun(v, "longBylineText") ?? "";
         var length = v.TryGetProperty("lengthText", out var l) && l.TryGetProperty("simpleText", out var s) ? s.GetString() : null;
-        return new YouTubeVideo(id!, title, channel, ParseLength(length));
+        var published = FirstRun(v, "publishedTimeText");
+        return new YouTubeVideo(id!, title, channel, ParseLength(length), published);
     }
 
     private static string? FirstRun(JsonElement v, string name)

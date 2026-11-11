@@ -81,9 +81,13 @@
                 <NavigationViewItem Content="Vídeos" Icon="Video" Tag="video" />
                 <NavigationViewItemSeparator />
                 <NavigationViewItem Content="Mi biblioteca" Icon="Library" Tag="library" />
+                <NavigationViewItem Content="Descargas" Icon="Download" Tag="downloads" />
                 <NavigationViewItemHeader Content="Tus listas" />
                 <NavigationViewItem x:Name="NewListItem" Content="Nueva lista" Icon="Add" Tag="newlist" SelectsOnInvoked="False" />
             </NavigationView.MenuItems>
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem Content="Ajustes" Icon="Setting" Tag="settings" />
+            </NavigationView.FooterMenuItems>
 
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -125,6 +129,7 @@
                             </Button>
                             <Button Content="Eliminar lista" Click="DeleteList_Click" />
                         </StackPanel>
+                        <StackPanel x:Name="ScopeChips" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" Visibility="Collapsed" />
                         <StackPanel x:Name="Genres" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" Visibility="Collapsed" />
 
                         <!-- Destacado -->
@@ -140,8 +145,8 @@
                                 </Border.Background>
                             </Border>
                             <StackPanel VerticalAlignment="Bottom" Margin="32" Spacing="6" MaxWidth="560" HorizontalAlignment="Left">
-                                <TextBlock Text="DESTACADO" FontSize="12" CharacterSpacing="120" Opacity="0.75" />
-                                <TextBlock x:Name="HeroTitle" FontSize="40" FontWeight="Bold" TextWrapping="Wrap" />
+                                <TextBlock x:Name="HeroLabel" Text="NUEVO LANZAMIENTO" FontSize="12" CharacterSpacing="120" Opacity="0.85" />
+                                <TextBlock x:Name="HeroTitle" FontSize="34" FontWeight="Bold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                                 <TextBlock x:Name="HeroSubtitle" Opacity="0.8" />
                                 <Button Style="{StaticResource AccentButtonStyle}" Margin="0,10,0,0" Padding="20,8" Click="Hero_Click">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -150,6 +155,7 @@
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
+                            <StackPanel x:Name="HeroDots" Orientation="Horizontal" Spacing="6" Margin="32" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
                         </Grid>
 
                         <TextBlock x:Name="Status" Foreground="#FF8A80" TextWrapping="Wrap" Visibility="Collapsed" />
@@ -166,22 +172,9 @@
                             </ItemsRepeater>
                         </StackPanel>
 
-                        <StackPanel x:Name="VideosSection" Spacing="6">
-                            <TextBlock x:Name="VideosTitle" Text="Películas y cortos" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
-                            <ItemsRepeater x:Name="VideosRepeater" ItemTemplate="{StaticResource VideoCard}">
-                                <ItemsRepeater.Layout>
-                                    <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
-                        </StackPanel>
-
-                        <StackPanel x:Name="TracksSection" Spacing="6">
-                            <TextBlock x:Name="TracksTitle" Text="Música" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
-                            <ItemsRepeater x:Name="TracksRepeater" ItemTemplate="{StaticResource TrackCard}">
-                                <ItemsRepeater.Layout>
-                                    <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
+                        <StackPanel x:Name="ShelvesHost" Spacing="14" Visibility="Collapsed">
+                            <ProgressRing x:Name="ShelvesBusy" IsActive="False" Width="22" Height="22" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                            <TextBlock x:Name="ShelvesInfo" Opacity="0.7" Margin="8,0,0,0" TextWrapping="Wrap" />
                         </StackPanel>
 
                         <StackPanel x:Name="SavedSection" Spacing="6" Visibility="Collapsed">
@@ -193,6 +186,43 @@
                                     <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
                                 </ItemsRepeater.Layout>
                             </ItemsRepeater>
+                        </StackPanel>
+
+                        <StackPanel x:Name="DownloadsSection" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Descargado" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
+                            <TextBlock x:Name="DownloadsEmpty" Opacity="0.7" Margin="8,0,0,0" TextWrapping="Wrap"
+                                       Text="Todavía no has descargado nada. Elige algo de la lista de abajo." />
+                            <StackPanel x:Name="DownloadedHost" Spacing="6" />
+                            <TextBlock Text="Contenido libre para descargar" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,16,0,0" />
+                            <TextBlock Opacity="0.7" Margin="8,0,0,0" TextWrapping="Wrap"
+                                       Text="Películas y cortos con licencia Creative Commons: puedes guardarlos y verlos sin conexión. YouTube no permite descargar sus vídeos, por eso aquí solo aparece contenido libre." />
+                            <StackPanel x:Name="AvailableHost" Spacing="6" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="SettingsSection" Spacing="22" Visibility="Collapsed" MaxWidth="820" HorizontalAlignment="Left" Margin="8,0,0,0">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Ecualizador" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <ToggleSwitch x:Name="EqToggle" Header="Activar ecualizador" OnContent="Activado" OffContent="Desactivado" Toggled="EqToggle_Toggled" />
+                                <ComboBox x:Name="EqPresetBox" Header="Ajuste" Width="220" SelectionChanged="EqPreset_Changed" />
+                                <StackPanel x:Name="EqBandsHost" Orientation="Horizontal" Spacing="16" Margin="0,8,0,0" />
+                                <TextBlock x:Name="EqStatus" Opacity="0.8" TextWrapping="Wrap" />
+                                <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
+                                           Text="Actúa sobre el sonido de YouTube dentro de la app. Los vídeos del catálogo libre no admiten ecualizador." />
+                            </StackPanel>
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Descargas" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock x:Name="DownloadFolderText" TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="Cambiar carpeta" Click="ChangeFolder_Click" />
+                                    <Button Content="Abrir carpeta" Click="OpenFolder_Click" />
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Privacidad" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <ToggleSwitch x:Name="AdBlockToggle" Header="Bloquear anuncios y rastreadores" OnContent="Activado" OffContent="Desactivado" Toggled="AdBlock_Toggled" />
+                                <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
+                                           Text="Corta las conexiones a servidores de publicidad conocidos. Los anuncios que YouTube sirve desde sus propios servidores de vídeo pueden seguir apareciendo." />
+                            </StackPanel>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
@@ -227,7 +257,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="410" />
+                <ColumnDefinition Width="470" />
             </Grid.ColumnDefinitions>
 
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
@@ -276,6 +306,9 @@
                 </Button>
                 <Button Click="Save_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Guardar en Mi biblioteca" AutomationProperties.Name="Guardar">
                     <FontIcon x:Name="SaveIcon" Glyph="&#xEB51;" />
+                </Button>
+                <Button Click="Download_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Descargar (contenido libre)" AutomationProperties.Name="Descargar">
+                    <SymbolIcon Symbol="Download" />
                 </Button>
                 <Button Click="Lyrics_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Mostrar u ocultar la letra" AutomationProperties.Name="Letra">
                     <TextBlock Text="Letra" FontWeight="SemiBold" />

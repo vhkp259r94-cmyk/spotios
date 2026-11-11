@@ -19,6 +19,7 @@ public sealed class MediaCard
     public string Subtitle { get; }
     public double DurationSec { get; }
     public Uri? ArtworkUrl { get; }
+    public string? Published { get; private set; }
 
     public string Source => YouTubeId is null ? "catalog" : "youtube";
     public bool IsTrack => Item?.Kind == ItemKind.Track;
@@ -38,6 +39,7 @@ public sealed class MediaCard
     public MediaCard(YouTubeVideo v) : this(v.Id, v.Title, v.Channel, v.DurationSec, v.Thumbnail)
     {
         YouTubeId = v.Id;
+        Published = v.Published;
     }
 
     /// <summary>Tarjeta desde la biblioteca guardada; <paramref name="catalogItem"/> se resuelve por id si es del catálogo.</summary>

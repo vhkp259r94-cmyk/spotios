@@ -1,9 +1,12 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using LibreStream.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Web.WebView2.Core;
 
 namespace LibreStream.App;
@@ -15,24 +18,33 @@ public sealed partial class MainWindow : Window
 
     private enum Mode { None, Native, YouTube }
 
-    private static readonly string DataDir =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LibreStream");
+    private sealed record Shelf(string Title, List<MediaCard> Cards);
+
+    private static readonly string DataDir = App.DataDir;
 
     private readonly AudioPlayerManager _player = AudioPlayerManager.Shared;
     private readonly CatalogService _catalog = new(new Uri(CatalogUrl), DataDir);
     private readonly LibraryStore _library = new(DataDir);
     private readonly PlaylistStore _playlists = new(DataDir);
+    private readonly SettingsStore _settings = new(DataDir);
+    private readonly DownloadStore _downloads = new(DataDir);
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly HttpClient _dl = new() { Timeout = Timeout.InfiniteTimeSpan };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly DispatcherTimer _searchDelay = new() { Interval = TimeSpan.FromMilliseconds(700) };
+    private readonly DispatcherTimer _heroTimer = new() { Interval = TimeSpan.FromSeconds(9) };
+    private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
 
     // Listas visibles
-    private List<MediaCard> _videos = [];
-    private List<MediaCard> _tracks = [];
     private List<MediaCard> _youtube = [];
     private List<MediaCard> _saved = [];
+    private List<MediaCard> _releases = [];
+    private List<Shelf> _shelves = [];
+    private bool _shelvesLoading, _shelvesLoaded;
     private MediaCard? _featured;
+    private int _heroIndex;
     private string _kind = "all";
+    private string _scope = "all";            // filtro de Inicio: all | track | video
     private string _youtubeQuery = "";
     private CancellationTokenSource? _searchCts;
 
@@ -53,10 +65,17 @@ public sealed partial class MainWindow : Window
     private int _lyricIndex = -1;
     private CancellationTokenSource? _lyricsCts;
 
-    // Estado del reproductor de YouTube embebido
+    // Reproductor de YouTube embebido y ecualizador
     private bool _ytReady, _ytPlaying;
     private string? _ytPending;
     private double _ytTime, _ytDuration;
+    private readonly List<CoreWebView2Frame> _ytFrames = [];
+    private string _eqScript = "";
+    private bool _loadingUi;
+    private int _eqTick;
+
+    /// <summary>Qué se muestra: en Música solo música, en Vídeos solo vídeos; en Inicio lo decide el filtro.</summary>
+    private string Scope => _kind switch { "track" => "track", "video" => "video", "all" => _scope, _ => "all" };
 
     public MainWindow()
     {
@@ -69,23 +88,68 @@ public sealed partial class MainWindow : Window
         int w = (int)(area.Width * 0.85), h = (int)(area.Height * 0.88);
         AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(area.X + (area.Width - w) / 2, area.Y + (area.Height - h) / 2, w, h));
 
+        AdBlock.Enabled = _settings.Current.AdBlock;
+        Volume.Value = _settings.Current.Volume;
         Video.SetMediaPlayer(_player.Player);
         _player.Volume = Volume.Value / 100;
         _player.StateChanged += () => DispatcherQueue.TryEnqueue(OnNativeStateChanged);
-        _timer.Tick += (_, _) => UpdateProgress();
+
+        _timer.Tick += (_, _) => Safe("Reloj", () =>
+        {
+            UpdateProgress();
+            if (_kind == "settings" && ++_eqTick % 4 == 0) _ = RefreshEqStatusAsync();
+        });
         _timer.Start();
+        _heroTimer.Tick += (_, _) => Safe("Destacado", () =>
+        {
+            if (_releases.Count > 1 && Hero.Visibility == Visibility.Visible)
+            {
+                _heroIndex = (_heroIndex + 1) % _releases.Count;
+                _featured = _releases[_heroIndex];
+                UpdateHero();
+            }
+        });
+        _heroTimer.Start();
         _searchDelay.Tick += (_, _) => { _searchDelay.Stop(); _ = SearchYouTubeAsync(Search.Text); };
+        _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); Safe("Guardar ajustes", _settings.Save); };
+        Closed += (_, _) => Safe("Cierre", () => { _settings.Save(); _timer.Stop(); _heroTimer.Stop(); });
 
         ShowYouTubeLayer(false);
         RebuildPlaylistNav();
-        foreach (var name in GenreNames)
-        {
-            var chip = new Button { Content = name, Tag = name, CornerRadius = new CornerRadius(16), Padding = new Thickness(14, 6, 14, 6) };
-            chip.Click += Genre_Click;
-            Genres.Children.Add(chip);
-        }
+        BuildChips(Genres, GenreNames, Genre_Click);
+        BuildChips(ScopeChips, ["Todo", "Música", "Vídeos"], Scope_Click, ["all", "track", "video"]);
+        BuildEqUi();
         _ = LoadAsync();
         _ = InitYouTubePlayerAsync();
+    }
+
+    /// <summary>Ejecuta una acción de interfaz anotando cualquier fallo en vez de cerrar la app.</summary>
+    private static void Safe(string origin, Action action)
+    {
+        try { action(); }
+        catch (Exception ex) { App.LogOnce(origin, ex); }
+    }
+
+    private void ScheduleSave()
+    {
+        _saveTimer.Stop();
+        _saveTimer.Start();
+    }
+
+    private static void BuildChips(StackPanel host, string[] labels, RoutedEventHandler click, string[]? tags = null)
+    {
+        for (var i = 0; i < labels.Length; i++)
+        {
+            var chip = new Button { Content = labels[i], Tag = tags?[i] ?? labels[i], CornerRadius = new CornerRadius(16), Padding = new Thickness(14, 6, 14, 6) };
+            chip.Click += click;
+            host.Children.Add(chip);
+        }
+    }
+
+    private static void Highlight(StackPanel host, string selected)
+    {
+        foreach (var chip in host.Children.OfType<Button>())
+            chip.Style = (Style)Application.Current.Resources[(string)chip.Tag == selected ? "AccentButtonStyle" : "DefaultButtonStyle"];
     }
 
     // ===================== Catálogo y listas =====================
@@ -98,9 +162,10 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            ShowStatus($"No se pudo actualizar el catálogo: {ex.Message}");
+            App.LogOnce("Catálogo", ex); // sin conexión: se usa la copia local si la hay
         }
         ApplyFilter();
+        _ = LoadReleasesAsync();
         _ = SearchYouTubeAsync(Search.Text);
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => Browse.ChangeView(null, 0, null, true));
     }
@@ -111,17 +176,55 @@ public sealed partial class MainWindow : Window
         Status.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    private static Visibility Vis(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
+
     private void ApplyFilter()
     {
         var q = MetadataMatcher.Fold(Search.Text ?? "");
+        var raw = Search.Text?.Trim() ?? "";
         bool Match(string text) => q.Length == 0 || MetadataMatcher.Fold(text).Contains(q);
         var playlist = _kind.StartsWith("pl:", StringComparison.Ordinal) ? _playlists.Find(_kind[3..]) : null;
         var library = _kind == "library" || playlist is not null;
+        var special = _kind is "settings" or "downloads";
+        var scope = Scope;
 
-        var items = library ? [] : _catalog.Items
-            .Where(i => Match($"{i.Artist} {i.Title} {string.Join(' ', i.Genres ?? [])}")).ToList();
-        _videos = _kind == "track" ? [] : items.Where(i => i.Kind != ItemKind.Track).Select(i => new MediaCard(i)).ToList();
-        _tracks = _kind == "video" ? [] : items.Where(i => i.Kind == ItemKind.Track).Select(i => new MediaCard(i)).ToList();
+        SettingsSection.Visibility = Vis(_kind == "settings");
+        DownloadsSection.Visibility = Vis(_kind == "downloads");
+        ScopeChips.Visibility = Vis(_kind == "all");
+        Highlight(ScopeChips, _scope);
+        Highlight(Genres, _genre);
+        Genres.Visibility = Vis(_kind == "track" && q.Length == 0);
+        PlaylistActions.Visibility = Vis(playlist is not null);
+        ShelvesHost.Visibility = Vis(_kind == "video" && q.Length == 0);
+
+        // Título y ayuda de cada apartado
+        (PageTitle.Text, var hint) = _kind switch
+        {
+            "track" => ("Música", q.Length > 0 ? $"Canciones para «{raw}». Solo música, sin vídeo." : "Elige un género o busca un artista. Aquí solo hay música y suena sin vídeo."),
+            "video" => ("Vídeos", q.Length > 0 ? $"Vídeos para «{raw}». Solo vídeos." : "Eventos, series, YouTubers y más. Busca para encontrar cualquier vídeo."),
+            "library" => ("Mi biblioteca", q.Length > 0 ? $"Guardados que coinciden con «{raw}»." : "Todo lo que has guardado con el corazón."),
+            "downloads" => ("Descargas", "Contenido libre que puedes ver sin conexión."),
+            "settings" => ("Ajustes", "Ecualizador, descargas y privacidad."),
+            _ => ("Inicio", q.Length > 0 ? $"{(scope == "track" ? "Canciones" : scope == "video" ? "Vídeos" : "Resultados")} para «{raw}»." : ""),
+        };
+        if (playlist is not null)
+        {
+            PageTitle.Text = playlist.Name;
+            hint = playlist.Items.Count == 1 ? "Lista · 1 elemento" : $"Lista · {playlist.Items.Count} elementos";
+        }
+        PageHint.Text = hint;
+        PageHint.Visibility = Vis(hint.Length > 0);
+
+        if (special)
+        {
+            SavedSection.Visibility = YouTubeSection.Visibility = Visibility.Collapsed;
+            SavedEmpty.Visibility = Visibility.Collapsed;
+            Hero.Visibility = Visibility.Collapsed;
+            _featured = null;
+            if (_kind == "downloads") BuildDownloads(); else RefreshSettingsUi();
+            return;
+        }
+
         _saved = !library ? [] : ((IEnumerable<SavedItem>?)playlist?.Items ?? _library.Items)
             .Where(s => Match($"{s.Title} {s.Subtitle}"))
             .Select(s => new MediaCard(s, _catalog.Items.FirstOrDefault(i => i.Id == s.Id)))
@@ -135,70 +238,79 @@ public sealed partial class MainWindow : Window
                 .Where(c => c.IsPlayable).ToList();
 
         var showYouTube = !library && (q.Length > 0 || _kind is "track" or "all");
-        if (!showYouTube || !_youtubeQuery.StartsWith(_kind + ":", StringComparison.Ordinal)) { _youtube = []; _youtubeQuery = ""; }
-        Genres.Visibility = Vis(_kind == "track" && q.Length == 0);
-        foreach (var child in Genres.Children.OfType<Button>())
-            child.Style = (Style)Application.Current.Resources[(string)child.Tag == _genre ? "AccentButtonStyle" : "DefaultButtonStyle"];
+        if (!showYouTube || !_youtubeQuery.StartsWith($"{_kind}|{scope}|", StringComparison.Ordinal)) { _youtube = []; _youtubeQuery = ""; }
 
-        // Título y ayuda de cada apartado
-        var raw = Search.Text?.Trim() ?? "";
-        (PageTitle.Text, var hint) = _kind switch
+        YouTubeTitle.Text = (_kind, q.Length > 0) switch
         {
-            "track" => ("Música", q.Length > 0 ? $"Canciones para «{raw}». En este apartado YouTube suena sin vídeo." : "Elige un género o busca un artista. Aquí YouTube suena sin vídeo."),
-            "video" => ("Vídeos", q.Length > 0 ? $"Vídeos para «{raw}»." : "Películas y cortos del catálogo libre. Busca para ver vídeos de YouTube."),
-            "library" => ("Mi biblioteca", q.Length > 0 ? $"Guardados que coinciden con «{raw}»." : "Todo lo que has guardado con el corazón."),
-            _ => ("Inicio", q.Length > 0 ? $"Todo lo encontrado para «{raw}»." : ""),
+            ("track", false) => _genre,
+            ("track", true) => "Música en YouTube",
+            ("all", false) => scope switch { "track" => "Canciones del momento", "video" => "Videoclips del momento", _ => "Éxitos del momento" },
+            _ => scope == "track" ? "Música en YouTube" : scope == "video" ? "Vídeos de YouTube" : "Resultados en YouTube",
         };
-        PageHint.Text = hint;
-        PageHint.Visibility = Vis(hint.Length > 0);
-        if (playlist is not null)
-        {
-            PageTitle.Text = playlist.Name;
-            PageHint.Text = playlist.Items.Count == 1 ? "Lista · 1 elemento" : $"Lista · {playlist.Items.Count} elementos";
-            PageHint.Visibility = Visibility.Visible;
-        }
-        PlaylistActions.Visibility = Vis(playlist is not null);
-        VideosTitle.Text = q.Length > 0 ? "Vídeos del catálogo libre" : "Películas y cortos";
-        TracksTitle.Text = q.Length > 0 ? "Música del catálogo libre" : _kind == "track" ? "Canciones" : "Música";
-        YouTubeTitle.Text = _kind switch
-        {
-            "track" => q.Length > 0 ? "Música en YouTube" : _genre,
-            "all" when q.Length == 0 => "Éxitos del momento",
-            _ => "Vídeos de YouTube",
-        };
-        SavedTitle.Text = library ? (q.Length > 0 ? "Resultados" : "Guardado") : "De tu biblioteca";
-        var template = (DataTemplate)Root.Resources[_kind == "track" ? "TrackCard" : "VideoCard"];
+        SavedTitle.Text = playlist is not null ? "En esta lista" : library ? (q.Length > 0 ? "Resultados" : "Guardado") : "De tu biblioteca";
+        var template = (DataTemplate)Root.Resources[scope == "track" ? "TrackCard" : "VideoCard"];
         if (!ReferenceEquals(YouTubeRepeater.ItemTemplate, template)) YouTubeRepeater.ItemTemplate = template;
 
-        VideosRepeater.ItemsSource = _videos;
-        TracksRepeater.ItemsSource = _tracks;
         SavedRepeater.ItemsSource = _saved;
         YouTubeRepeater.ItemsSource = _youtube;
-        VideosSection.Visibility = Vis(_videos.Count > 0);
-        TracksSection.Visibility = Vis(_tracks.Count > 0);
         SavedSection.Visibility = Vis(library || (home && _saved.Count > 0));
-        SavedEmpty.Text = q.Length > 0 ? "Nada guardado coincide con la búsqueda." : "Aún no has guardado nada. Reproduce algo y pulsa el corazón de la barra inferior.";
-        if (playlist is not null)
-        {
-            SavedTitle.Text = "En esta lista";
-            if (q.Length == 0) SavedEmpty.Text = "Lista vacía. Reproduce algo y pulsa + en la barra inferior para añadirlo.";
-        }
+        SavedEmpty.Text = q.Length > 0 ? "Nada guardado coincide con la búsqueda."
+            : playlist is not null ? "Lista vacía. Reproduce algo y pulsa + en la barra inferior para añadirlo."
+            : "Aún no has guardado nada. Reproduce algo y pulsa el corazón de la barra inferior.";
         SavedEmpty.Visibility = Vis(library && _saved.Count == 0);
         YouTubeSection.Visibility = Vis(showYouTube);
 
-        // Destacado: solo en la vista sin búsqueda
-        _featured = q.Length == 0 && _kind == "all" ? _videos.FirstOrDefault() ?? _tracks.FirstOrDefault() : null;
+        // Anuncio de lanzamientos nuevos: solo en Inicio y sin búsqueda
+        _featured = home && _releases.Count > 0 ? _releases[_heroIndex % _releases.Count] : null;
         Hero.Visibility = Vis(_featured is not null);
-        if (_featured is not null)
+        UpdateHero();
+    }
+
+    // ===================== Anuncio de lanzamientos =====================
+
+    /// <summary>Canciones publicadas esta semana: mezcla búsqueda en español y en inglés.</summary>
+    private async Task LoadReleasesAsync()
+    {
+        if (_releases.Count > 0) return;
+        try
         {
-            HeroTile.Background = _featured.Tile;
-            HeroImage.Source = _featured.Artwork;
-            HeroTitle.Text = _featured.Title;
-            HeroSubtitle.Text = $"{_featured.Subtitle} · {_featured.DurationText} · {_featured.Item?.License.Spdx}";
+            var latin = await YouTubeSearch.SearchAsync(_http, "nuevo lanzamiento oficial video musical", default, thisWeek: true);
+            var world = await YouTubeSearch.SearchAsync(_http, "new music official video", default, thisWeek: true);
+            var mixed = new List<YouTubeVideo>();
+            for (var i = 0; i < Math.Max(latin.Count, world.Count); i++)
+            {
+                if (i < world.Count) mixed.Add(world[i]);
+                if (i < latin.Count) mixed.Add(latin[i]);
+            }
+            _releases = mixed.Where(v => ContentFilter.IsSong(v) && v.DurationSec <= 480).DistinctBy(v => v.Id).Take(6).Select(v => new MediaCard(v)).ToList();
+            _heroIndex = 0;
+            ApplyFilter();
+        }
+        catch (Exception ex)
+        {
+            App.LogOnce("Lanzamientos", ex); // sin conexión: simplemente no se muestra el anuncio
         }
     }
 
-    private static Visibility Vis(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
+    private void UpdateHero()
+    {
+        if (_featured is not { } card) return;
+        HeroTile.Background = card.Tile;
+        var image = new BitmapImage(new Uri($"https://i.ytimg.com/vi/{card.Id}/maxresdefault.jpg"));
+        image.ImageFailed += (_, _) => HeroImage.Source = new BitmapImage(new Uri($"https://i.ytimg.com/vi/{card.Id}/hqdefault.jpg"));
+        HeroImage.Source = image;
+        HeroLabel.Text = string.IsNullOrEmpty(card.Published) ? "NUEVO LANZAMIENTO" : $"NUEVO LANZAMIENTO · {card.Published.ToUpperInvariant()}";
+        var (_, title) = LyricsService.GuessTrack(card.Title, card.Subtitle);
+        HeroTitle.Text = title;
+        HeroSubtitle.Text = $"{card.Subtitle} · {card.DurationText}";
+        HeroDots.Children.Clear();
+        for (var i = 0; i < _releases.Count; i++)
+            HeroDots.Children.Add(new Microsoft.UI.Xaml.Shapes.Ellipse
+            {
+                Width = 8, Height = 8,
+                Fill = new SolidColorBrush(i == _heroIndex % _releases.Count ? Microsoft.UI.Colors.White : Windows.UI.Color.FromArgb(90, 255, 255, 255)),
+            });
+    }
 
     // ===================== Búsqueda en YouTube =====================
 
@@ -206,15 +318,17 @@ public sealed partial class MainWindow : Window
     {
         var typed = (text ?? "").Trim();
         var kind = _kind;
-        if (kind == "library" || kind.StartsWith("pl:", StringComparison.Ordinal) || typed.Length == 1) return;
+        var scope = Scope;
+        if (kind is "library" or "settings" or "downloads" || kind.StartsWith("pl:", StringComparison.Ordinal) || typed.Length == 1) return;
+        if (kind == "video" && typed.Length == 0) { _ = LoadShelvesAsync(); return; }
+
         // Sin texto: Música muestra el género elegido e Inicio los éxitos del momento
-        var query = typed.Length > 0 ? (kind == "track" ? typed + " audio" : typed)
-            : kind == "track" ? (_genre == "Éxitos" ? $"official music video {DateTime.Now.Year}" : $"{_genre} official music video")
-            : kind == "all" ? $"official music video {DateTime.Now.Year}"
-            : "";
-        var musicOnly = kind == "track" || typed.Length == 0;
-        var key = $"{kind}:{query}";
-        if (query.Length == 0 || key == _youtubeQuery) return;
+        var hits = $"official music video {DateTime.Now.Year}";
+        var query = typed.Length > 0 ? (scope == "track" ? typed + " audio" : typed)
+            : kind == "track" && _genre != "Éxitos" ? $"{_genre} official music video"
+            : hits;
+        var key = $"{kind}|{scope}|{query}";
+        if (key == _youtubeQuery) return;
 
         _searchCts?.Cancel();
         var cts = _searchCts = new CancellationTokenSource();
@@ -222,10 +336,12 @@ public sealed partial class MainWindow : Window
         YouTubeInfo.Text = "";
         try
         {
-            // En Música se buscan pistas de audio; en Vídeos se excluyen los directos
-            var results = await YouTubeSearch.SearchAsync(_http, query, cts.Token, videosOnly: musicOnly);
-            if (cts.IsCancellationRequested || kind != _kind) return;
-            if (musicOnly) results = results.Where(v => v.DurationSec is > 60 and <= 900).ToList();
+            var results = await YouTubeSearch.SearchAsync(_http, query, cts.Token, videosOnly: true);
+            if (cts.IsCancellationRequested || kind != _kind || scope != Scope) return;
+            results = scope == "track" ? results.Where(ContentFilter.IsSong).ToList()
+                : scope == "video" ? results.Where(ContentFilter.IsVideo).ToList()
+                : typed.Length == 0 ? results.Where(ContentFilter.IsSong).ToList()
+                : results.Where(v => !v.IsLive).ToList();
             _youtubeQuery = key;
             _youtube = results.Select(v => new MediaCard(v)).ToList();
             YouTubeRepeater.ItemsSource = _youtube;
@@ -242,20 +358,89 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // ===================== Estanterías de Vídeos =====================
+
+    private async Task LoadShelvesAsync()
+    {
+        if (_shelvesLoaded) { BuildShelves(); return; }
+        if (_shelvesLoading) return;
+        _shelvesLoading = true;
+        ShelvesBusy.IsActive = true;
+        ShelvesInfo.Text = "Cargando vídeos…";
+        try
+        {
+            using var gate = new SemaphoreSlim(3); // como mucho 3 búsquedas a la vez
+            async Task<IReadOnlyList<YouTubeVideo>> One(string query)
+            {
+                await gate.WaitAsync();
+                try { return await YouTubeSearch.SearchAsync(_http, query, default, videosOnly: true); }
+                catch (Exception ex) { App.LogOnce("Estantería " + query, ex); return []; }
+                finally { gate.Release(); }
+            }
+
+            var built = await Task.WhenAll(VideoShelves.Default.Select(async shelf =>
+            {
+                var results = await Task.WhenAll(shelf.Queries.Select(One));
+                return new Shelf(shelf.Title, VideoShelves.Merge(results, 10).Select(v => new MediaCard(v)).ToList());
+            }));
+            _shelves = built.Where(s => s.Cards.Count > 0).ToList();
+            _shelvesLoaded = _shelves.Count > 0;
+            ShelvesInfo.Text = _shelves.Count == 0 ? "No se pudieron cargar los vídeos. Comprueba la conexión." : "";
+        }
+        finally
+        {
+            _shelvesLoading = false;
+            ShelvesBusy.IsActive = false;
+        }
+        BuildShelves();
+    }
+
+    private void BuildShelves()
+    {
+        while (ShelvesHost.Children.Count > 2) ShelvesHost.Children.RemoveAt(2);
+        var template = (DataTemplate)Root.Resources["VideoCard"];
+        foreach (var shelf in _shelves)
+        {
+            var row = new ItemsRepeater
+            {
+                ItemTemplate = template,
+                ItemsSource = shelf.Cards,
+                Layout = new StackLayout { Orientation = Orientation.Horizontal, Spacing = 8 },
+            };
+            var scroller = new ScrollViewer
+            {
+                Content = row,
+                HorizontalScrollMode = ScrollMode.Enabled, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollMode = ScrollMode.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            };
+            var panel = new StackPanel { Spacing = 6 };
+            panel.Children.Add(new TextBlock { Text = shelf.Title, Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"], Margin = new Thickness(8, 8, 0, 0) });
+            panel.Children.Add(scroller);
+            ShelvesHost.Children.Add(panel);
+        }
+    }
+
     // ===================== Reproducción (cola unificada) =====================
 
     private void Play(MediaCard card, List<MediaCard> list)
     {
         if (!card.IsPlayable) return;
-        _audioOnly = _kind == "track";
+        _audioOnly = Scope == "track";
         _queue = list.Where(c => c.IsPlayable).ToList();
         _index = _queue.FindIndex(c => c.Source == card.Source && c.Id == card.Id);
         if (_index < 0) { _queue = [card]; _index = 0; }
         StartCurrent();
     }
 
+    /// <summary>Si el elemento del catálogo está descargado, se reproduce desde el disco.</summary>
+    private CatalogItem Resolve(CatalogItem item) =>
+        _downloads.Find(item.Id) is { } d && File.Exists(d.FilePath) && item.Sources.Count > 0
+            ? item with { Sources = [item.Sources[0] with { Url = new Uri(d.FilePath), Provider = Provider.Direct }] }
+            : item;
+
     private void StartCurrent()
     {
+        if (_index < 0 || _index >= _queue.Count) return;
         var card = _queue[_index];
         _now = card;
         ShowStatus(null);
@@ -275,7 +460,7 @@ public sealed partial class MainWindow : Window
             RunPlayerScript("cmd('stop')");
             ShowYouTubeLayer(false);
             var natives = _queue.Where(c => c.Item is not null).ToList();
-            _player.Play(natives.Select(c => c.Item!), natives.IndexOf(card));
+            _player.Play(natives.Select(c => Resolve(c.Item!)), Math.Max(0, natives.IndexOf(card)));
         }
         UpdateNowPlayingBar();
     }
@@ -403,8 +588,8 @@ public sealed partial class MainWindow : Window
 
     private void SelectNav(string tag)
     {
-        if (Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == tag) is { } item)
-            Nav.SelectedItem = item;
+        var item = Nav.MenuItems.Concat(Nav.FooterMenuItems).OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == tag);
+        if (item is not null) Nav.SelectedItem = item;
     }
 
     private async Task CreatePlaylistAsync(bool addCurrent)
@@ -481,19 +666,26 @@ public sealed partial class MainWindow : Window
         _ = SearchYouTubeAsync(Search.Text);
     }
 
+    private void Scope_Click(object sender, RoutedEventArgs e)
+    {
+        _scope = (string)((Button)sender).Tag;
+        ApplyFilter();
+        _ = SearchYouTubeAsync(Search.Text);
+    }
+
     private void UpdateProgress()
     {
         TimeSpan pos, total;
         if (_mode == Mode.YouTube)
         {
-            pos = TimeSpan.FromSeconds(_ytTime);
-            total = TimeSpan.FromSeconds(_ytDuration);
+            pos = TimeSpan.FromSeconds(Clean(_ytTime));
+            total = TimeSpan.FromSeconds(Clean(_ytDuration));
         }
         else
         {
             pos = _player.Position;
             total = _player.Duration;
-            if (total <= TimeSpan.Zero && _now is not null) total = TimeSpan.FromSeconds(_now.DurationSec);
+            if (total <= TimeSpan.Zero && _now is not null) total = TimeSpan.FromSeconds(Clean(_now.DurationSec));
         }
 
         _updatingProgress = true;
@@ -504,6 +696,8 @@ public sealed partial class MainWindow : Window
         FollowLyrics(pos.TotalSeconds);
         Elapsed.Text = MediaCard.Format(pos);
         Total.Text = MediaCard.Format(total);
+
+        static double Clean(double seconds) => double.IsFinite(seconds) ? Math.Clamp(seconds, 0, 360_000) : 0;
     }
 
     // ===================== Reproductor de YouTube embebido =====================
@@ -512,6 +706,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
+            _eqScript = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Assets", "eq.js"));
             await YouTubePlayer.EnsureCoreWebView2Async();
             var core = YouTubePlayer.CoreWebView2;
             core.SetVirtualHostNameToFolderMapping(PlayerHost, Path.Combine(AppContext.BaseDirectory, "Assets"),
@@ -521,18 +716,45 @@ public sealed partial class MainWindow : Window
             core.WebMessageReceived += OnPlayerMessage;
             // Bloqueo de anuncios y rastreadores a nivel de red (lista en Core/Services/Privacy/AdBlock.cs)
             core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
-            core.WebResourceRequested += (_, e) =>
+            core.WebResourceRequested += (_, e) => Safe("Bloqueo de anuncios", () =>
             {
                 if (AdBlock.IsBlocked(e.Request.Uri))
                     e.Response = core.Environment.CreateWebResourceResponse(null, 403, "Blocked", "");
-            };
+            });
             core.NewWindowRequested += (_, e) => e.Handled = true; // sin ventanas emergentes
+            core.ProcessFailed += (_, e) => Safe("WebView2", () => OnPlayerProcessFailed(e));
+            // Ecualizador: se inyecta en el marco (iframe) del reproductor de YouTube
+            core.FrameCreated += (_, e) => Safe("Marco", () =>
+            {
+                var frame = e.Frame;
+                _ytFrames.Add(frame);
+                frame.Destroyed += (_, _) => _ytFrames.Remove(frame);
+                frame.NavigationCompleted += async (_, _) =>
+                {
+                    try { await frame.ExecuteScriptAsync(_eqScript); PushEq(); }
+                    catch (Exception ex) { App.LogOnce("Ecualizador (marco)", ex); }
+                };
+            });
             YouTubePlayer.Source = new Uri($"https://{PlayerHost}/player.html");
         }
         catch (Exception ex)
         {
+            App.Log("Reproductor de YouTube", ex);
             ShowStatus($"No se pudo iniciar el reproductor de YouTube (¿falta WebView2 Runtime?): {ex.Message}");
         }
+    }
+
+    private void OnPlayerProcessFailed(CoreWebView2ProcessFailedEventArgs e)
+    {
+        App.Log("WebView2 " + e.ProcessFailedKind, null);
+        _ytReady = false;
+        _ytFrames.Clear();
+        if (e.ProcessFailedKind is CoreWebView2ProcessFailedKind.RenderProcessExited or CoreWebView2ProcessFailedKind.RenderProcessUnresponsive)
+        {
+            if (_mode == Mode.YouTube && _now?.YouTubeId is { } id) _ytPending = id; // al reiniciarse, retoma lo que sonaba
+            YouTubePlayer.CoreWebView2?.Reload();
+        }
+        else ShowStatus("El reproductor de YouTube se detuvo. Reinicia la aplicación para recuperarlo.");
     }
 
     /// <summary>
@@ -550,7 +772,11 @@ public sealed partial class MainWindow : Window
 
     private void RunPlayerScript(string script)
     {
-        if (_ytReady && YouTubePlayer.CoreWebView2 is not null) _ = YouTubePlayer.ExecuteScriptAsync(script);
+        try
+        {
+            if (_ytReady && YouTubePlayer.CoreWebView2 is not null) _ = YouTubePlayer.ExecuteScriptAsync(script);
+        }
+        catch (Exception ex) { App.LogOnce("Script del reproductor", ex); }
     }
 
     private void OnPlayerMessage(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -589,10 +815,260 @@ public sealed partial class MainWindow : Window
                     break;
             }
         }
-        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException)
+        catch (Exception ex)
         {
-            // mensaje con formato inesperado: se ignora
+            App.LogOnce("Mensaje del reproductor", ex); // mensaje con formato inesperado: se ignora
         }
+    }
+
+    // ===================== Ecualizador =====================
+
+    private void BuildEqUi()
+    {
+        EqPresetBox.ItemsSource = EqPresets.All.Keys.Append(EqPresets.Custom).ToList();
+        for (var i = 0; i < AppSettings.BandCount; i++)
+        {
+            var slider = new Slider
+            {
+                Orientation = Orientation.Vertical, Height = 150, Minimum = -AppSettings.MaxGainDb, Maximum = AppSettings.MaxGainDb,
+                StepFrequency = 1, Tag = i, HorizontalAlignment = HorizontalAlignment.Center, IsThumbToolTipEnabled = false,
+            };
+            slider.ValueChanged += EqBand_Changed;
+            var value = new TextBlock { Text = "0", FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Opacity = 0.8 };
+            var label = new TextBlock { Text = EqPresets.BandLabels[i], FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Opacity = 0.65 };
+            var column = new StackPanel { Spacing = 6, Width = 44 };
+            column.Children.Add(value);
+            column.Children.Add(slider);
+            column.Children.Add(label);
+            EqBandsHost.Children.Add(column);
+        }
+    }
+
+    private Slider EqSlider(int i) => (Slider)((StackPanel)EqBandsHost.Children[i]).Children[1];
+    private TextBlock EqValue(int i) => (TextBlock)((StackPanel)EqBandsHost.Children[i]).Children[0];
+
+    private void RefreshSettingsUi()
+    {
+        _loadingUi = true;
+        var s = _settings.Current;
+        EqToggle.IsOn = s.EqEnabled;
+        EqPresetBox.SelectedItem = s.EqPreset;
+        for (var i = 0; i < AppSettings.BandCount; i++)
+        {
+            EqSlider(i).Value = s.EqBands[i];
+            EqValue(i).Text = s.EqBands[i].ToString("+0;-0;0", CultureInfo.InvariantCulture);
+        }
+        DownloadFolderText.Text = "Carpeta: " + _settings.DownloadFolder;
+        AdBlockToggle.IsOn = s.AdBlock;
+        _loadingUi = false;
+        _ = RefreshEqStatusAsync();
+    }
+
+    private void EqToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_loadingUi) return;
+        _settings.Current.EqEnabled = EqToggle.IsOn;
+        ScheduleSave();
+        PushEq();
+        _ = RefreshEqStatusAsync();
+    }
+
+    private void EqPreset_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingUi || EqPresetBox.SelectedItem is not string name) return;
+        _settings.Current.EqPreset = name;
+        if (EqPresets.All.TryGetValue(name, out var bands)) _settings.Current.EqBands = (double[])bands.Clone();
+        ScheduleSave();
+        RefreshSettingsUi();
+        PushEq();
+    }
+
+    private void EqBand_Changed(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (_loadingUi || sender is not Slider { Tag: int i }) return;
+        _settings.Current.EqBands[i] = e.NewValue;
+        _settings.Current.EqPreset = EqPresets.Match(_settings.Current.EqBands);
+        EqValue(i).Text = e.NewValue.ToString("+0;-0;0", CultureInfo.InvariantCulture);
+        _loadingUi = true;
+        EqPresetBox.SelectedItem = _settings.Current.EqPreset;
+        _loadingUi = false;
+        ScheduleSave();
+        PushEq();
+    }
+
+    /// <summary>Envía las ganancias actuales a todos los marcos de YouTube abiertos.</summary>
+    private void PushEq()
+    {
+        var s = _settings.Current;
+        var script = $"window.__lsEq && window.__lsEq({JsonSerializer.Serialize(s.EqBands)}, {(s.EqEnabled ? "true" : "false")})";
+        foreach (var frame in _ytFrames.ToList())
+        {
+            try { _ = frame.ExecuteScriptAsync(script); }
+            catch (Exception ex) { App.LogOnce("Ecualizador", ex); }
+        }
+    }
+
+    private async Task RefreshEqStatusAsync()
+    {
+        if (_kind != "settings") return;
+        if (!_settings.Current.EqEnabled) { EqStatus.Text = "Ecualizador desactivado."; return; }
+        var frames = _ytFrames.ToList();
+        if (frames.Count == 0) { EqStatus.Text = "Se aplicará cuando reproduzcas algo de YouTube."; return; }
+        foreach (var frame in frames)
+        {
+            try
+            {
+                var raw = await frame.ExecuteScriptAsync("window.__lsEqStatus ? window.__lsEqStatus() : null");
+                if (raw is null or "null") continue;
+                using var doc = JsonDocument.Parse(JsonSerializer.Deserialize<string>(raw)!);
+                var r = doc.RootElement;
+                var level = r.GetProperty("level").GetDouble();
+                if (r.GetProperty("attached").GetBoolean())
+                    EqStatus.Text = level > 0 ? $"Activo: el sonido de YouTube pasa por el ecualizador (nivel {level:0})."
+                        : "Conectado al reproductor; esperando sonido.";
+                else
+                    EqStatus.Text = r.TryGetProperty("error", out var err) && err.ValueKind == JsonValueKind.String
+                        ? $"No se pudo conectar: {err.GetString()}" : "Esperando a que empiece el sonido de YouTube…";
+                return;
+            }
+            catch (Exception ex) { App.LogOnce("Estado del ecualizador", ex); }
+        }
+        EqStatus.Text = "Esperando a que empiece el sonido de YouTube…";
+    }
+
+    // ===================== Ajustes de descargas y privacidad =====================
+
+    private async void ChangeFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FolderPicker { SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.VideosLibrary };
+            picker.FileTypeFilter.Add("*");
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder is null) return;
+            _settings.Current.DownloadFolder = folder.Path;
+            _settings.Save();
+            RefreshSettingsUi();
+        }
+        catch (Exception ex) { App.Log("Carpeta de descargas", ex); }
+    }
+
+    private void OpenFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(_settings.DownloadFolder);
+            Process.Start(new ProcessStartInfo { FileName = _settings.DownloadFolder, UseShellExecute = true });
+        }
+        catch (Exception ex) { App.Log("Abrir carpeta", ex); }
+    }
+
+    private void AdBlock_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_loadingUi) return;
+        _settings.Current.AdBlock = AdBlockToggle.IsOn;
+        AdBlock.Enabled = AdBlockToggle.IsOn;
+        ScheduleSave();
+    }
+
+    // ===================== Descargas =====================
+
+    private static string FormatBytes(long bytes) =>
+        bytes >= 1_000_000_000 ? $"{bytes / 1e9:0.0} GB" : bytes >= 1_000_000 ? $"{bytes / 1e6:0} MB" : $"{bytes / 1e3:0} KB";
+
+    private static Grid MakeRow(string title, string detail, string? image, out StackPanel actions)
+    {
+        var row = new Grid
+        {
+            ColumnSpacing = 12, Padding = new Thickness(8), CornerRadius = new CornerRadius(8),
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(24, 255, 255, 255)),
+        };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var picture = new Image { Width = 96, Height = 54, Stretch = Stretch.UniformToFill };
+        if (Uri.TryCreate(image, UriKind.Absolute, out var uri)) picture.Source = new BitmapImage(uri);
+        row.Children.Add(picture);
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock { Text = title, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+        text.Children.Add(new TextBlock { Text = detail, FontSize = 12, Opacity = 0.65, TextTrimming = TextTrimming.CharacterEllipsis });
+        Grid.SetColumn(text, 1);
+        row.Children.Add(text);
+        actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        Grid.SetColumn(actions, 2);
+        row.Children.Add(actions);
+        return row;
+    }
+
+    private void BuildDownloads()
+    {
+        DownloadedHost.Children.Clear();
+        AvailableHost.Children.Clear();
+        foreach (var d in _downloads.Items)
+        {
+            var row = MakeRow(d.Title, $"{d.Artist} · {MediaCard.Format(TimeSpan.FromSeconds(d.DurationSec))} · {FormatBytes(d.Bytes)}", d.ArtworkUrl, out var actions);
+            var play = new Button { Content = "Reproducir" };
+            var done = d;
+            play.Click += (_, _) =>
+            {
+                if (_catalog.Items.FirstOrDefault(i => i.Id == done.Id) is { } item) { var card = new MediaCard(item); _scope = "video"; Play(card, [card]); }
+            };
+            var remove = new Button { Content = "Eliminar" };
+            remove.Click += (_, _) => { _downloads.Remove(done.Id); BuildDownloads(); };
+            actions.Children.Add(play);
+            actions.Children.Add(remove);
+            DownloadedHost.Children.Add(row);
+        }
+        DownloadsEmpty.Visibility = Vis(_downloads.Items.Count == 0);
+
+        foreach (var item in _catalog.Items.Where(i => _downloads.Find(i.Id) is null))
+        {
+            var row = MakeRow(item.Title, $"{item.Artist} · {MediaCard.Format(TimeSpan.FromSeconds(item.DurationSec))} · {item.License.Spdx}", item.ArtworkUrl?.AbsoluteUri, out var actions);
+            var bar = new ProgressBar { Width = 130, Minimum = 0, Maximum = 100, Visibility = Visibility.Collapsed };
+            var button = new Button { Content = "Descargar" };
+            var target = item;
+            button.Click += async (_, _) => await DownloadAsync(target, button, bar);
+            actions.Children.Add(bar);
+            actions.Children.Add(button);
+            AvailableHost.Children.Add(row);
+        }
+        if (AvailableHost.Children.Count == 0)
+            AvailableHost.Children.Add(new TextBlock { Text = "Ya has descargado todo el contenido libre disponible.", Opacity = 0.7, Margin = new Thickness(8, 0, 0, 0) });
+    }
+
+    private async Task DownloadAsync(CatalogItem item, Button button, ProgressBar bar)
+    {
+        var source = item.Sources.FirstOrDefault(s => s.IsDirectlyPlayable);
+        if (source is null) return;
+        button.IsEnabled = false;
+        bar.Value = 0;
+        bar.Visibility = Visibility.Visible;
+        try
+        {
+            var ext = Path.GetExtension(source.Url.AbsolutePath);
+            var destination = Path.Combine(_settings.DownloadFolder, FileDownloader.SafeFileName($"{item.Artist} - {item.Title}", string.IsNullOrEmpty(ext) ? ".mp4" : ext));
+            var bytes = await FileDownloader.DownloadAsync(_dl, source.Url, destination, new Progress<double>(p => bar.Value = p * 100));
+            _downloads.Add(new DownloadedItem(item.Id, item.Title, item.Artist, item.Kind.ToString().ToLowerInvariant(), destination, bytes, item.DurationSec, item.ArtworkUrl?.AbsoluteUri));
+            if (_kind == "downloads") BuildDownloads();
+            ShowStatus(null);
+        }
+        catch (Exception ex)
+        {
+            App.Log("Descarga " + item.Title, ex);
+            button.IsEnabled = true;
+            bar.Visibility = Visibility.Collapsed;
+            button.Content = "Reintentar";
+            ShowStatus($"No se pudo descargar «{item.Title}»: {ex.Message}");
+        }
+    }
+
+    private void Download_Click(object sender, RoutedEventArgs e)
+    {
+        SelectNav("downloads");
+        ShowStatus(_now?.YouTubeId is not null
+            ? "YouTube no permite descargar sus vídeos. En Descargas solo hay contenido libre (Creative Commons)."
+            : null);
     }
 
     // ===================== Eventos de la interfaz =====================
@@ -605,6 +1081,7 @@ public sealed partial class MainWindow : Window
         if (_catalog is null) return;
         ApplyFilter();
         _ = SearchYouTubeAsync(Search.Text);
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => Browse.ChangeView(null, 0, null, true));
     }
 
     private void Search_TextChanged(AutoSuggestBox s, AutoSuggestBoxTextChangedEventArgs e)
@@ -627,13 +1104,13 @@ public sealed partial class MainWindow : Window
         if ((sender as FrameworkElement)?.Tag is not MediaCard card) return;
         var list = _saved.Contains(card) ? _saved
             : _youtube.Contains(card) ? _youtube
-            : card.IsTrack ? _tracks : _videos;
+            : _shelves.FirstOrDefault(s => s.Cards.Contains(card))?.Cards ?? [card];
         Play(card, list);
     }
 
     private void Hero_Click(object sender, RoutedEventArgs e)
     {
-        if (_featured is not null) Play(_featured, _featured.IsTrack ? _tracks : _videos);
+        if (_featured is not null) Play(_featured, _releases);
     }
 
     private void CloseLayer_Click(object sender, RoutedEventArgs e)
@@ -661,8 +1138,8 @@ public sealed partial class MainWindow : Window
     {
         if (_mode == Mode.None)
         {
-            if ((_featured ?? _tracks.FirstOrDefault() ?? _videos.FirstOrDefault() ?? _saved.FirstOrDefault()) is { } first)
-                Play(first, _saved.Contains(first) ? _saved : first.IsTrack ? _tracks : _videos);
+            if ((_featured ?? _youtube.FirstOrDefault() ?? _saved.FirstOrDefault()) is { } first)
+                Play(first, first == _featured ? _releases : _youtube.Contains(first) ? _youtube : _saved);
         }
         else if (_mode == Mode.YouTube)
         {
@@ -690,5 +1167,7 @@ public sealed partial class MainWindow : Window
         if (_player is null) return;
         _player.Volume = e.NewValue / 100;
         RunPlayerScript($"cmd('volume', {e.NewValue.ToString("0", CultureInfo.InvariantCulture)})");
+        _settings.Current.Volume = e.NewValue;
+        ScheduleSave();
     }
 }

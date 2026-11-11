@@ -21,8 +21,12 @@ public static class AdBlock
         "/pagead/", "/api/stats/ads", "/get_midroll_info", "/ptracking", "/youtubei/v1/player/ad_break",
     ];
 
+    /// <summary>Interruptor general (ajuste del usuario). Con false no se bloquea nada.</summary>
+    public static bool Enabled { get; set; } = true;
+
     public static bool IsBlocked(Uri uri)
     {
+        if (!Enabled) return false;
         var host = uri.Host.ToLowerInvariant();
         if (Hosts.Any(h => host == h || host.EndsWith("." + h, StringComparison.Ordinal))) return true;
         var youtube = host == "youtube.com" || host.EndsWith(".youtube.com", StringComparison.Ordinal)

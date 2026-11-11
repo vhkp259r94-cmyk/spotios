@@ -18,6 +18,11 @@ mantenerse **idénticos**: si cambias una regex, cámbiala en los tres y en sus 
 | Cambiar las letras sincronizadas | (pendiente) | `LibreStream.Core/Services/Lyrics/LyricsService.cs` (fuente: LRCLIB) | — |
 | Cambiar las listas de reproducción | (pendiente) | `LibreStream.Core/Services/Library/PlaylistStore.cs` | — |
 | Cambiar los géneros de Música | (pendiente) | `LibreStream.App/Views/MainWindow.xaml.cs` (`GenreNames`) | — |
+| Cambiar las estanterías de Vídeos (Velada, series, YouTubers…) | (pendiente) | `LibreStream.Core/Services/YouTube/VideoShelves.cs` | — |
+| Cambiar qué cuenta como «canción» o «vídeo» | (pendiente) | `LibreStream.Core/Services/YouTube/ContentFilter.cs` | — |
+| Cambiar los ajustes y los ajustes del ecualizador | (pendiente) | `LibreStream.Core/Services/Settings/AppSettings.cs` | — |
+| Cambiar el sonido del ecualizador | (pendiente) | `LibreStream.App/Assets/eq.js` | — |
+| Cambiar las descargas | (pendiente) | `LibreStream.Core/Services/Downloads/Downloads.cs` | — |
 | Cambiar la biblioteca guardada | (pendiente) | `LibreStream.Core/Services/Library/LibraryStore.cs` | — |
 | Añadir/quitar dominios del bloqueo de anuncios | (pendiente) | `LibreStream.Core/Services/Privacy/AdBlock.cs` | — |
 | Cambiar la URL del catálogo | `ios/project.yml` (`LSCatalogURL`) | `Views/MainWindow.xaml.cs` (`CatalogUrl`) | — |

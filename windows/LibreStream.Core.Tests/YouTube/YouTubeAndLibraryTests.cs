@@ -8,7 +8,7 @@ public class YouTubeAndLibraryTests
     private const string Html = """
         <html><script>var ytInitialData = {"contents":{"list":[
           {"videoRenderer":{"videoId":"abcdefghijk","title":{"runs":[{"text":"Canción uno"}]},
-            "ownerText":{"runs":[{"text":"Canal A"}]},"lengthText":{"simpleText":"3:25"}}},
+            "ownerText":{"runs":[{"text":"Canal A"}]},"lengthText":{"simpleText":"3:25"},"publishedTimeText":{"simpleText":"hace 5 d"}}},
           {"shelf":{"items":[{"videoRenderer":{"videoId":"ABC_def-123","title":{"simpleText":"Directo"},
             "longBylineText":{"runs":[{"text":"Canal B"}]}}}]}},
           {"videoRenderer":{"videoId":"abcdefghijk","title":{"runs":[{"text":"Duplicado"}]}}},
@@ -21,7 +21,7 @@ public class YouTubeAndLibraryTests
     {
         var r = YouTubeSearch.Parse(Html);
         Assert.Equal(2, r.Count);
-        Assert.Equal(new YouTubeVideo("abcdefghijk", "Canción uno", "Canal A", 205), r[0]);
+        Assert.Equal(new YouTubeVideo("abcdefghijk", "Canción uno", "Canal A", 205, "hace 5 d"), r[0]);
         Assert.True(r[1].IsLive);
         Assert.Equal("Canal B", r[1].Channel);
         Assert.Equal("https://i.ytimg.com/vi/abcdefghijk/mqdefault.jpg", r[0].Thumbnail.AbsoluteUri);
