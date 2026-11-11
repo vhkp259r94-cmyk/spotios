@@ -16,7 +16,7 @@ class NativeBridge(private val activity: MainActivity, private val web: WebView)
 
     private val io = Executors.newCachedThreadPool()
     private val fetchHosts = setOf("www.youtube.com", "lrclib.net", "vhkp259r94-cmyk.github.io")
-    private val userAgent = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36"
+    private val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
     private val downloadsDir get() = File(activity.filesDir, "downloads").apply { mkdirs() }
 
     @JavascriptInterface

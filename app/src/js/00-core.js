@@ -101,6 +101,17 @@ var LS = globalThis.LS = globalThis.LS || {};
     return out;
   };
 
+  /** Explica en una frase por qué una página de YouTube no trae vídeos (para no mostrar un «sin resultados» mudo). */
+  LS.diagnoseYouTube = function (html) {
+    const h = String(html || '');
+    const kb = Math.round(h.length / 1024);
+    if (!h.length) return 'respuesta vacía';
+    if (/consent\.youtube\.com|consent\.google\.com/i.test(h)) return `pantalla de consentimiento de cookies (${kb} KB)`;
+    if (/unusual traffic|captcha|not a bot|confirm you.{0,10}re not a bot/i.test(h)) return `YouTube pide comprobar que no eres un robot (${kb} KB)`;
+    if (!h.includes('ytInitialData')) return `página con otro formato, sin datos de vídeo (${kb} KB)`;
+    return `página sin vídeos para esta búsqueda (${kb} KB)`;
+  };
+
   // ---------- Filtro música / vídeo ----------
   // JS no tiene \b con acentos: se delimita con "no letra ni número" a cada lado.
   const NOT_A_SONG = /(^|[^\p{L}\p{N}_])(tutorial|lesson|lecci[oó]n|reaction|reacci[oó]n|karaoke|how to|c[oó]mo tocar|review|podcast|interview|entrevista|nightcore|slowed|sped up|8d audio|full album|[aá]lbum completo|playlist|mix|megamix|compilation|recopilaci[oó]n)(?![\p{L}\p{N}_])|\d+\s*(hours?|horas?)/iu;

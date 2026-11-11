@@ -16,7 +16,7 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
     /// Origen https ficticio: el reproductor de YouTube exige un origen https para incrustarse.
     private let pageOrigin = URL(string: "https://app.librestream/")!
     private let fetchHosts: Set<String> = ["www.youtube.com", "lrclib.net", "vhkp259r94-cmyk.github.io"]
-    private let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    private let userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
     private weak var webView: WKWebView?
     private var adList: WKContentRuleList?

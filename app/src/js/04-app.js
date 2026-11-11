@@ -61,7 +61,9 @@
     if (saved) { cache.set(k, saved); return saved; }
     await slot();                                      // como mucho 3 descargas a la vez (cada página pesa 1-2 MB)
     try {
-      const r = LS.parseYouTube(await Native.fetchText(LS.searchUrl(query, opts)));
+      const html = await Native.fetchText(LS.searchUrl(query, opts));
+      const r = LS.parseYouTube(html);
+      if (!r.length) throw new Error('YouTube no devolvió vídeos: ' + LS.diagnoseYouTube(html));   // un vacío nunca se guarda en caché
       cache.set(k, r);
       persistent.set(k, r);
       return r;
@@ -196,10 +198,11 @@
     S.shelvesLoading = true;
     try {
       const built = await Promise.all(LS.SHELVES.map(async (sh) => {
-        const results = await Promise.all(sh.queries.map((qq) => ytSearch(qq, { videosOnly: true }).catch(() => [])));
+        const results = await Promise.all(sh.queries.map((qq) => ytSearch(qq, { videosOnly: true }).catch((e) => { S.lastError = e.message; return []; })));
         return { title: sh.title, items: LS.mergeShelf(results, 10).map(ytItem) };
       }));
       S.shelves = built.filter((s) => s.items.length);
+      if (!S.shelves.length) S.shelves = null;   // se reintentará la próxima vez
       built.forEach((s, i) => setList('shelf' + i, s.items));
     } finally { S.shelvesLoading = false; }
     if (S.page === 'videos' && !S.query) drawShelves(S.renderId);
@@ -208,7 +211,7 @@
   function drawShelves(id) {
     if (id !== S.renderId) return;
     const box = $('#hits');
-    if (!S.shelves || !S.shelves.length) { box.innerHTML = '<p class="hint err">No se pudieron cargar los vídeos. Comprueba la conexión.</p>'; return; }
+    if (!S.shelves || !S.shelves.length) { box.innerHTML = `<p class="hint err">No se pudieron cargar los vídeos. ${esc(S.lastError || 'Comprueba la conexión.')}</p>`; return; }
     S.shelves.forEach((s, i) => lists.set('shelf' + i, s.items.map((x) => x.key)));
     box.innerHTML = S.shelves.map((s, i) => `<section><h2>${esc(s.title)}</h2><div class="shelf">${s.items.map((it) => card(it, 'shelf' + i, 'video')).join('')}</div></section>`).join('');
   }

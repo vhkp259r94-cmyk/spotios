@@ -222,3 +222,11 @@ test('caché con caducidad: guarda, caduca y se limita', () => {
   m.set('ls.cache', '{ roto');
   assert.equal(LS.createCache(st, {}).size(), 0);                                    // archivo roto: se ignora
 });
+
+test('diagnóstico de páginas de YouTube sin vídeos', () => {
+  assert.match(LS.diagnoseYouTube(''), /vacía/);
+  assert.match(LS.diagnoseYouTube('<a href="https://consent.youtube.com/m">'), /consentimiento/);
+  assert.match(LS.diagnoseYouTube('<p>Our systems have detected unusual traffic</p>'), /robot/);
+  assert.match(LS.diagnoseYouTube('<html>nada</html>'), /otro formato/);
+  assert.match(LS.diagnoseYouTube('var ytInitialData = {};'), /sin vídeos/);
+});
