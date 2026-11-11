@@ -288,7 +288,7 @@
       <section class="panel"><h2>Privacidad</h2>
         <label class="switch"><input type="checkbox" id="adOn" ${s.adBlock ? 'checked' : ''}> Bloquear anuncios y rastreadores</label>
         <p class="note">Corta las conexiones a servidores de publicidad conocidos. Los anuncios que YouTube sirve desde sus propios servidores de vídeo pueden seguir apareciendo.</p></section>
-      <section class="panel"><h2>Acerca de</h2><p class="note">LibreStream es gratuita, de código abierto y sin suscripciones. YouTube se reproduce con su reproductor oficial y no se descarga. Letras: LRCLIB. Plataforma: ${esc(Native.platform)}.</p></section>`;
+      <section class="panel"><h2>Acerca de</h2><p class="note">Nimbo es gratuita, de código abierto y sin suscripciones. YouTube se reproduce con su reproductor oficial y no se descarga. Letras: LRCLIB. Plataforma: ${esc(Native.platform)}.</p></section>`;
     refreshEqStatus();
   }
   const fmtGain = (n) => (n > 0 ? '+' + n : String(n));

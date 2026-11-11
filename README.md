@@ -1,4 +1,8 @@
-# LibreStream Hub
+# Nimbo
+
+<p align="center"><img src="branding/icon-1024.png" width="160" alt="Logo de Nimbo"></p>
+
+*Antes «LibreStream Hub». Nimbo es la aureola que corona y la nube de la que sale el rayo: la corona y el rayo de su logo.*
 
 Centro de entretenimiento de código abierto, gratuito y sin suscripciones (música + vídeo).
 El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al instalar

@@ -47,7 +47,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           [[ "$GITHUB_REF_TYPE" == "tag" ]] || VERSION="dev-${GITHUB_SHA::7}"
-          APK="LibreStream-${VERSION}-android.apk"
+          APK="Nimbo-${VERSION}-android.apk"
           cp android/app/build/outputs/apk/debug/app-debug.apk "$APK"
           sha256sum "$APK" > "$APK.sha256"
           echo "apk=$APK" >> "$GITHUB_OUTPUT"

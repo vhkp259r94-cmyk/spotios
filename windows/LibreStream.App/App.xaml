@@ -7,6 +7,14 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+            <!-- Colores del logo de Nimbo (el rojo del rayo) en lugar del acento de Windows -->
+            <Color x:Key="SystemAccentColor">#E5465C</Color>
+            <Color x:Key="SystemAccentColorDark1">#C93A4F</Color>
+            <Color x:Key="SystemAccentColorDark2">#AC2F42</Color>
+            <Color x:Key="SystemAccentColorDark3">#8E2535</Color>
+            <Color x:Key="SystemAccentColorLight1">#E5465C</Color>
+            <Color x:Key="SystemAccentColorLight2">#E5465C</Color>
+            <Color x:Key="SystemAccentColorLight3">#F08295</Color>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

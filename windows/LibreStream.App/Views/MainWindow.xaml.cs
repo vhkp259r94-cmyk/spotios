@@ -82,6 +82,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         ExtendsContentIntoTitleBar = true;
+        try { AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "icon.ico")); } catch (Exception ex) { App.Log("Icono de la ventana", ex); }
         SetTitleBar(TitleBar);
 
         // Tamaño inicial: 85 % del área de trabajo, centrada (nunca detrás de la barra de tareas)

@@ -16,10 +16,13 @@ const js = readdirSync(join(src, 'js')).filter((f) => f.endsWith('.js')).sort()
 
 if (/<\/script/i.test(js)) throw new Error('El JS contiene "</script": se rompería el HTML incrustado.');
 
+const logo = 'data:image/png;base64,' + readFileSync(join(src, 'logo.png')).toString('base64');
+
 // Funciones de reemplazo para que "$&" y similares dentro del código no se interpreten
 const html = readFileSync(join(src, 'index.template.html'), 'utf8')
   .replace('<!--CSS-->', () => css)
-  .replace('<!--JS-->', () => js);
+  .replace('<!--JS-->', () => js)
+  .replaceAll('<!--LOGO-->', () => logo);
 
 writeFileSync(join(dist, 'index.html'), html);
 writeFileSync(join(dist, 'eq.js'), readFileSync(join(src, 'eq.js'), 'utf8'));
