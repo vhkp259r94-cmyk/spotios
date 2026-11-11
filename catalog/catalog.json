@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-11-10T00:00:00Z",
+  "generatedAt": "2026-11-11T00:00:00Z",
   "items": [
     {
       "id": "4b498eb814fcbc96514e49ad2f236f1e",
@@ -8,10 +8,159 @@
       "title": "Monkeys Spinning Monkeys",
       "artist": "Kevin MacLeod",
       "version": "original",
-      "durationSec": 125,
-      "license": { "spdx": "CC-BY-4.0", "attribution": "Kevin MacLeod (incompetech.com)" },
+      "durationSec": 125.1,
+      "genres": [
+        "Comedia"
+      ],
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "attribution": "Kevin MacLeod (incompetech.com)"
+      },
       "sources": [
-        { "provider": "archive_org", "url": "https://archive.org/download/kevin-macleod-monkeys-spinning-monkeys/Monkeys%20Spinning%20Monkeys.mp3", "mime": "audio/mpeg", "durationSec": 125 }
+        {
+          "provider": "direct",
+          "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Monkeys%20Spinning%20Monkeys.mp3",
+          "mime": "audio/mpeg",
+          "durationSec": 125.1
+        }
+      ]
+    },
+    {
+      "id": "301b86445a81645bc84131187ddb295b",
+      "kind": "track",
+      "title": "Carefree",
+      "artist": "Kevin MacLeod",
+      "version": "original",
+      "durationSec": 205.1,
+      "genres": [
+        "Alegre"
+      ],
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "attribution": "Kevin MacLeod (incompetech.com)"
+      },
+      "sources": [
+        {
+          "provider": "direct",
+          "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Carefree.mp3",
+          "mime": "audio/mpeg",
+          "durationSec": 205.1
+        }
+      ]
+    },
+    {
+      "id": "f227d968a3cde3641a4e067c486e86d1",
+      "kind": "track",
+      "title": "Sneaky Snitch",
+      "artist": "Kevin MacLeod",
+      "version": "original",
+      "durationSec": 136.6,
+      "genres": [
+        "Comedia"
+      ],
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "attribution": "Kevin MacLeod (incompetech.com)"
+      },
+      "sources": [
+        {
+          "provider": "direct",
+          "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Sneaky%20Snitch.mp3",
+          "mime": "audio/mpeg",
+          "durationSec": 136.6
+        }
+      ]
+    },
+    {
+      "id": "454db1d64fad1e9d322ef4289cee5b11",
+      "kind": "track",
+      "title": "Fluffing a Duck",
+      "artist": "Kevin MacLeod",
+      "version": "original",
+      "durationSec": 67.4,
+      "genres": [
+        "Comedia"
+      ],
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "attribution": "Kevin MacLeod (incompetech.com)"
+      },
+      "sources": [
+        {
+          "provider": "direct",
+          "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Fluffing%20a%20Duck.mp3",
+          "mime": "audio/mpeg",
+          "durationSec": 67.4
+        }
+      ]
+    },
+    {
+      "id": "8248fcc1188362f3e292b36b1c9663d6",
+      "kind": "track",
+      "title": "Local Forecast - Elevator",
+      "artist": "Kevin MacLeod",
+      "version": "original",
+      "durationSec": 189.2,
+      "genres": [
+        "Jazz"
+      ],
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "attribution": "Kevin MacLeod (incompetech.com)"
+      },
+      "sources": [
+        {
+          "provider": "direct",
+          "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Local%20Forecast%20-%20Elevator.mp3",
+          "mime": "audio/mpeg",
+          "durationSec": 189.2
+        }
+      ]
+    },
+    {
+      "id": "4c00935de74c1212265589c8e128cfa2",
+      "kind": "track",
+      "title": "Wallpaper",
+      "artist": "Kevin MacLeod",
+      "version": "original",
+      "durationSec": 220.1,
+      "genres": [
+        "Alegre"
+      ],
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "attribution": "Kevin MacLeod (incompetech.com)"
+      },
+      "sources": [
+        {
+          "provider": "direct",
+          "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Wallpaper.mp3",
+          "mime": "audio/mpeg",
+          "durationSec": 220.1
+        }
+      ]
+    },
+    {
+      "id": "1adf2867758fe1c50f05715d961fc243",
+      "kind": "track",
+      "title": "Investigations",
+      "artist": "Kevin MacLeod",
+      "version": "original",
+      "durationSec": 93.5,
+      "genres": [
+        "Misterio"
+      ],
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "attribution": "Kevin MacLeod (incompetech.com)"
+      },
+      "sources": [
+        {
+          "provider": "direct",
+          "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Investigations.mp3",
+          "mime": "audio/mpeg",
+          "durationSec": 93.5
+        }
       ]
     },
     {
@@ -19,10 +168,93 @@
       "kind": "video",
       "title": "Big Buck Bunny",
       "artist": "Blender Foundation",
-      "durationSec": 596,
-      "license": { "spdx": "CC-BY-3.0", "attribution": "(c) Blender Foundation | peach.blender.org" },
+      "durationSec": 596.5,
+      "genres": [
+        "Animación",
+        "Comedia"
+      ],
+      "artworkUrl": "https://archive.org/services/img/BigBuckBunny_124",
+      "license": {
+        "spdx": "CC-BY-3.0",
+        "attribution": "(c) Blender Foundation"
+      },
       "sources": [
-        { "provider": "direct", "url": "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4", "mime": "video/mp4", "durationSec": 596 }
+        {
+          "provider": "archive_org",
+          "url": "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4",
+          "mime": "video/mp4",
+          "durationSec": 596.5
+        }
+      ]
+    },
+    {
+      "id": "e7129416e23f7752deb9b80d09550a12",
+      "kind": "video",
+      "title": "Sintel",
+      "artist": "Blender Foundation",
+      "durationSec": 888.06,
+      "genres": [
+        "Animación",
+        "Fantasía"
+      ],
+      "artworkUrl": "https://archive.org/services/img/Sintel",
+      "license": {
+        "spdx": "CC-BY-3.0",
+        "attribution": "(c) Blender Foundation"
+      },
+      "sources": [
+        {
+          "provider": "archive_org",
+          "url": "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4",
+          "mime": "video/mp4",
+          "durationSec": 888.06
+        }
+      ]
+    },
+    {
+      "id": "81ddf379798295db79fa6b43054c0bf3",
+      "kind": "video",
+      "title": "Elephants Dream",
+      "artist": "Blender Foundation",
+      "durationSec": 653.79,
+      "genres": [
+        "Animación"
+      ],
+      "artworkUrl": "https://archive.org/services/img/ElephantsDream",
+      "license": {
+        "spdx": "CC-BY-3.0",
+        "attribution": "(c) Blender Foundation"
+      },
+      "sources": [
+        {
+          "provider": "archive_org",
+          "url": "https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4",
+          "mime": "video/mp4",
+          "durationSec": 653.79
+        }
+      ]
+    },
+    {
+      "id": "bc7e5f568e44906177d5206943053b5b",
+      "kind": "video",
+      "title": "Tears of Steel",
+      "artist": "Blender Foundation",
+      "durationSec": 734.12,
+      "genres": [
+        "Ciencia ficción"
+      ],
+      "artworkUrl": "https://archive.org/services/img/Tears-of-Steel",
+      "license": {
+        "spdx": "CC-BY-3.0",
+        "attribution": "(c) Blender Foundation"
+      },
+      "sources": [
+        {
+          "provider": "archive_org",
+          "url": "https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4",
+          "mime": "video/mp4",
+          "durationSec": 734.12
+        }
       ]
     }
   ]

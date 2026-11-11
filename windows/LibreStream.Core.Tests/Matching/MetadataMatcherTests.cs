@@ -61,8 +61,9 @@ public class MetadataMatcherTests
     public void ParsesSampleCatalog()
     {
         var items = CatalogService.Parse(File.ReadAllText("catalog.json"));
-        Assert.Equal(2, items.Count);
-        Assert.Equal(Provider.ArchiveOrg, items[0].Sources[0].Provider);
-        Assert.Equal(ItemKind.Video, items[1].Kind);
+        Assert.Equal(11, items.Count);
+        Assert.Equal(Provider.Direct, items[0].Sources[0].Provider);
+        Assert.Contains(items, i => i.Sources[0].Provider == Provider.ArchiveOrg);
+        Assert.Equal(4, items.Count(i => i.Kind == ItemKind.Video));
     }
 }
