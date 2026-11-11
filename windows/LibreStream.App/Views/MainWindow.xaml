@@ -86,6 +86,9 @@
                 <ScrollViewer x:Name="Browse" VerticalScrollBarVisibility="Auto">
                     <StackPanel Padding="28,20,28,28" Spacing="14">
 
+                        <TextBlock x:Name="PageTitle" Text="Inicio" Style="{StaticResource TitleTextBlockStyle}" Margin="8,0,0,0" />
+                        <TextBlock x:Name="PageHint" Opacity="0.7" Margin="8,-8,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+
                         <!-- Destacado -->
                         <Grid x:Name="Hero" Height="280" CornerRadius="14" Visibility="Collapsed">
                             <Border x:Name="HeroTile" />
@@ -113,7 +116,7 @@
 
                         <TextBlock x:Name="Status" Foreground="#FF8A80" TextWrapping="Wrap" Visibility="Collapsed" />
                         <StackPanel x:Name="VideosSection" Spacing="6">
-                            <TextBlock Text="Películas y cortos" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
+                            <TextBlock x:Name="VideosTitle" Text="Películas y cortos" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
                             <ItemsRepeater x:Name="VideosRepeater" ItemTemplate="{StaticResource VideoCard}">
                                 <ItemsRepeater.Layout>
                                     <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
@@ -122,7 +125,7 @@
                         </StackPanel>
 
                         <StackPanel x:Name="TracksSection" Spacing="6">
-                            <TextBlock Text="Música" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
+                            <TextBlock x:Name="TracksTitle" Text="Música" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
                             <ItemsRepeater x:Name="TracksRepeater" ItemTemplate="{StaticResource TrackCard}">
                                 <ItemsRepeater.Layout>
                                     <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
@@ -132,7 +135,7 @@
 
                         <StackPanel x:Name="YouTubeSection" Spacing="6" Visibility="Collapsed">
                             <StackPanel Orientation="Horizontal" Spacing="10" Margin="8,8,0,0">
-                                <TextBlock Text="YouTube" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock x:Name="YouTubeTitle" Text="YouTube" Style="{StaticResource SubtitleTextBlockStyle}" />
                                 <ProgressRing x:Name="YouTubeBusy" IsActive="False" Width="18" Height="18" />
                             </StackPanel>
                             <TextBlock x:Name="YouTubeInfo" Opacity="0.7" Margin="8,0,0,0" />
@@ -144,7 +147,7 @@
                         </StackPanel>
 
                         <StackPanel x:Name="SavedSection" Spacing="6" Visibility="Collapsed">
-                            <TextBlock Text="Mi biblioteca" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
+                            <TextBlock x:Name="SavedTitle" Text="Guardado" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
                             <TextBlock x:Name="SavedEmpty" Opacity="0.7" Margin="8,0,0,0" TextWrapping="Wrap"
                                        Text="Aún no has guardado nada. Reproduce algo y pulsa el corazón de la barra inferior." />
                             <ItemsRepeater x:Name="SavedRepeater" ItemTemplate="{StaticResource VideoCard}">
@@ -157,7 +160,7 @@
                 </ScrollViewer>
 
                 <!-- Reproductor oficial de YouTube embebido, controlado por la barra de la app -->
-                <Grid x:Name="YouTubeLayer" Background="Black" Visibility="Collapsed">
+                <Grid x:Name="YouTubeLayer" Background="Black" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                     <WebView2 x:Name="YouTubePlayer" Margin="0,56,0,0" />
                     <Button Margin="12" VerticalAlignment="Top" Click="CloseLayer_Click" ToolTipService.ToolTip="Ocultar vídeo (sigue sonando)">
                         <StackPanel Orientation="Horizontal" Spacing="6">

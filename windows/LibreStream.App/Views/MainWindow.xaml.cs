@@ -41,6 +41,8 @@ public sealed partial class MainWindow : Window
     private int _index = -1;
     private MediaCard? _now;
     private bool _updatingProgress;
+    private bool _audioOnly;
+    private bool _ytLayerShown;
 
     // Estado del reproductor de YouTube embebido
     private bool _ytReady, _ytPlaying;
@@ -65,6 +67,7 @@ public sealed partial class MainWindow : Window
         _timer.Start();
         _searchDelay.Tick += (_, _) => { _searchDelay.Stop(); _ = SearchYouTubeAsync(Search.Text); };
 
+        ShowYouTubeLayer(false);
         _ = LoadAsync();
         _ = InitYouTubePlayerAsync();
     }
@@ -106,8 +109,33 @@ public sealed partial class MainWindow : Window
             .Select(s => new MediaCard(s, _catalog.Items.FirstOrDefault(i => i.Id == s.Id)))
             .Where(c => c.IsPlayable).ToList();
 
+        // Inicio sin búsqueda: fila con lo último guardado
+        var home = _kind == "all" && q.Length == 0;
+        if (home)
+            _saved = _library.Items.Take(8)
+                .Select(x => new MediaCard(x, _catalog.Items.FirstOrDefault(i => i.Id == x.Id)))
+                .Where(c => c.IsPlayable).ToList();
+
         var showYouTube = !library && q.Length > 0;
         if (!showYouTube) { _youtube = []; _youtubeQuery = ""; }
+
+        // Título y ayuda de cada apartado
+        var raw = Search.Text?.Trim() ?? "";
+        (PageTitle.Text, var hint) = _kind switch
+        {
+            "track" => ("Música", q.Length > 0 ? $"Canciones para «{raw}». En este apartado YouTube suena sin vídeo." : "Canciones del catálogo libre. Busca para añadir música de YouTube (solo sonido)."),
+            "video" => ("Vídeos", q.Length > 0 ? $"Vídeos para «{raw}»." : "Películas y cortos del catálogo libre. Busca para ver vídeos de YouTube."),
+            "library" => ("Mi biblioteca", q.Length > 0 ? $"Guardados que coinciden con «{raw}»." : "Todo lo que has guardado con el corazón."),
+            _ => ("Inicio", q.Length > 0 ? $"Todo lo encontrado para «{raw}»." : ""),
+        };
+        PageHint.Text = hint;
+        PageHint.Visibility = Vis(hint.Length > 0);
+        VideosTitle.Text = q.Length > 0 ? "Vídeos del catálogo libre" : "Películas y cortos";
+        TracksTitle.Text = q.Length > 0 ? "Música del catálogo libre" : _kind == "track" ? "Canciones" : "Música";
+        YouTubeTitle.Text = _kind == "track" ? "Música en YouTube" : "Vídeos de YouTube";
+        SavedTitle.Text = library ? (q.Length > 0 ? "Resultados" : "Guardado") : "De tu biblioteca";
+        var template = (DataTemplate)Root.Resources[_kind == "track" ? "TrackCard" : "VideoCard"];
+        if (!ReferenceEquals(YouTubeRepeater.ItemTemplate, template)) YouTubeRepeater.ItemTemplate = template;
 
         VideosRepeater.ItemsSource = _videos;
         TracksRepeater.ItemsSource = _tracks;
@@ -115,7 +143,8 @@ public sealed partial class MainWindow : Window
         YouTubeRepeater.ItemsSource = _youtube;
         VideosSection.Visibility = Vis(_videos.Count > 0);
         TracksSection.Visibility = Vis(_tracks.Count > 0);
-        SavedSection.Visibility = Vis(library);
+        SavedSection.Visibility = Vis(library || (home && _saved.Count > 0));
+        SavedEmpty.Text = q.Length > 0 ? "Nada guardado coincide con la búsqueda." : "Aún no has guardado nada. Reproduce algo y pulsa el corazón de la barra inferior.";
         SavedEmpty.Visibility = Vis(library && _saved.Count == 0);
         YouTubeSection.Visibility = Vis(showYouTube);
 
@@ -138,7 +167,9 @@ public sealed partial class MainWindow : Window
     private async Task SearchYouTubeAsync(string? text)
     {
         var query = (text ?? "").Trim();
-        if (query.Length < 2 || _kind == "library" || query == _youtubeQuery) return;
+        var key = $"{_kind}:{query}";
+        if (query.Length < 2 || _kind == "library" || key == _youtubeQuery) return;
+        var kind = _kind;
 
         _searchCts?.Cancel();
         var cts = _searchCts = new CancellationTokenSource();
@@ -146,9 +177,11 @@ public sealed partial class MainWindow : Window
         YouTubeInfo.Text = "";
         try
         {
-            var results = await YouTubeSearch.SearchAsync(_http, query, cts.Token);
-            if (cts.IsCancellationRequested) return;
-            _youtubeQuery = query;
+            // En Música se buscan pistas de audio; en Vídeos se excluyen los directos
+            var results = await YouTubeSearch.SearchAsync(_http, kind == "track" ? query + " audio" : query, cts.Token);
+            if (cts.IsCancellationRequested || kind != _kind) return;
+            if (kind == "track") results = results.Where(v => v.DurationSec is > 0 and <= 900).ToList();
+            _youtubeQuery = key;
             _youtube = results.Select(v => new MediaCard(v)).ToList();
             YouTubeRepeater.ItemsSource = _youtube;
             YouTubeInfo.Text = _youtube.Count == 0 ? "Sin resultados en YouTube." : "";
@@ -169,6 +202,7 @@ public sealed partial class MainWindow : Window
     private void Play(MediaCard card, List<MediaCard> list)
     {
         if (!card.IsPlayable) return;
+        _audioOnly = _kind == "track";
         _queue = list.Where(c => c.IsPlayable).ToList();
         _index = _queue.FindIndex(c => c.Source == card.Source && c.Id == card.Id);
         if (_index < 0) { _queue = [card]; _index = 0; }
@@ -188,13 +222,13 @@ public sealed partial class MainWindow : Window
             VideoLayer.Visibility = Visibility.Collapsed;
             _ytTime = 0; _ytDuration = card.DurationSec; _ytPlaying = true;
             if (_ytReady) RunPlayerScript($"load('{id}')"); else _ytPending = id;
-            YouTubeLayer.Visibility = Visibility.Visible;
+            ShowYouTubeLayer(!_audioOnly);
         }
         else
         {
             _mode = Mode.Native;
             RunPlayerScript("cmd('stop')");
-            YouTubeLayer.Visibility = Visibility.Collapsed;
+            ShowYouTubeLayer(false);
             var natives = _queue.Where(c => c.Item is not null).ToList();
             _player.Play(natives.Select(c => c.Item!), natives.IndexOf(card));
         }
@@ -300,6 +334,19 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Muestra u oculta el vídeo de YouTube. Al ocultarlo NO se colapsa (WebView2 suspendería la
+    /// reproducción): se deja vivo en 2×2 px y transparente para que el sonido siga o pueda empezar.
+    /// </summary>
+    private void ShowYouTubeLayer(bool show)
+    {
+        _ytLayerShown = show;
+        YouTubeLayer.Width = show ? double.NaN : 2;
+        YouTubeLayer.Height = show ? double.NaN : 2;
+        YouTubeLayer.Opacity = show ? 1 : 0;
+        YouTubeLayer.IsHitTestVisible = show;
+    }
+
     private void RunPlayerScript(string script)
     {
         if (_ytReady && YouTubePlayer.CoreWebView2 is not null) _ = YouTubePlayer.ExecuteScriptAsync(script);
@@ -334,7 +381,7 @@ public sealed partial class MainWindow : Window
                     ShowStatus(code is 101 or 150
                         ? $"«{_now?.Title}» no permite reproducirse fuera de youtube.com (lo decide quien lo subió)."
                         : $"YouTube no pudo reproducir «{_now?.Title}» (error {code}).");
-                    YouTubeLayer.Visibility = Visibility.Collapsed;
+                    ShowYouTubeLayer(false);
                     _ytPlaying = false;
                     if (_index + 1 < _queue.Count) { _index++; StartCurrent(); }
                     else UpdateNowPlayingBar();
@@ -353,7 +400,7 @@ public sealed partial class MainWindow : Window
     {
         _kind = (e.SelectedItem as NavigationViewItem)?.Tag as string ?? "all";
         VideoLayer.Visibility = Visibility.Collapsed;
-        YouTubeLayer.Visibility = Visibility.Collapsed;
+        ShowYouTubeLayer(false);
         if (_catalog is null) return;
         ApplyFilter();
         _ = SearchYouTubeAsync(Search.Text);
@@ -362,7 +409,7 @@ public sealed partial class MainWindow : Window
     private void Search_TextChanged(AutoSuggestBox s, AutoSuggestBoxTextChangedEventArgs e)
     {
         VideoLayer.Visibility = Visibility.Collapsed;
-        YouTubeLayer.Visibility = Visibility.Collapsed;
+        ShowYouTubeLayer(false);
         ApplyFilter();
         _searchDelay.Stop();
         _searchDelay.Start();
@@ -392,12 +439,12 @@ public sealed partial class MainWindow : Window
     {
         // Oculta el vídeo; el sonido sigue (modo música)
         VideoLayer.Visibility = Visibility.Collapsed;
-        YouTubeLayer.Visibility = Visibility.Collapsed;
+        ShowYouTubeLayer(false);
     }
 
     private void ShowVideo_Click(object sender, RoutedEventArgs e)
     {
-        if (_mode == Mode.YouTube) YouTubeLayer.Visibility = Vis(YouTubeLayer.Visibility != Visibility.Visible);
+        if (_mode == Mode.YouTube) ShowYouTubeLayer(!_ytLayerShown);
         else if (_mode == Mode.Native && _now is { IsTrack: false }) VideoLayer.Visibility = Vis(VideoLayer.Visibility != Visibility.Visible);
     }
 

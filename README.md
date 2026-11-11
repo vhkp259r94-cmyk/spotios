@@ -88,5 +88,5 @@ En macOS: `brew install xcodegen && cd ios && xcodegen && open LibreStream.xcode
 ## Release
 
 ```bash
-git tag v0.3.0 && git push origin v0.3.0
+git tag v0.3.1 && git push origin v0.3.1
 ```
