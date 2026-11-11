@@ -24,7 +24,7 @@
     catalog: [],
     queue: [], index: -1, now: null, audioOnly: false,
     lyrics: null, lyricsFor: '', lyricIndex: -1,
-    renderId: 0, playing: false, time: 0, duration: 0,
+    renderId: 0, playing: false, time: 0, duration: 0, skips: 0,
   };
   const reg = new Map();     // clave → elemento (para las tarjetas)
   const lists = new Map();   // lista → claves (la cola al pulsar una tarjeta)
@@ -321,6 +321,7 @@
     S.queue = keys.map((k) => reg.get(k)).filter(Boolean);
     S.index = Math.max(0, S.queue.findIndex((i) => i.key === key));
     S.audioOnly = scopeNow() === 'track' && it.src === 'yt';
+    S.skips = 0;
     start();
   }
 
@@ -342,6 +343,7 @@
 
   Player.on('state', (st) => {
     S.playing = st.playing; S.time = st.time; if (st.duration > 0) S.duration = st.duration;
+    if (st.playing && st.time > 1) S.skips = 0;       // ya suena: se acaba la racha de errores
     $('#play').textContent = st.playing ? '⏸' : '▶';
     $('#elapsed').textContent = LS.formatTime(S.time);
     $('#total').textContent = LS.formatTime(S.duration);
@@ -354,7 +356,9 @@
     const t = S.now ? S.now.title : '';
     toast(e.code === 101 || e.code === 150 ? `«${t}» no permite reproducirse fuera de youtube.com (lo decide quien lo subió).` : `No se pudo reproducir «${t}» (${e.message || 'error ' + e.code}).`);
     showVideo(false);
-    if (S.index + 1 < S.queue.length) setTimeout(next, 1200);
+    S.skips++;
+    if (S.skips <= 3 && S.index + 1 < S.queue.length) setTimeout(next, 1200);
+    else if (S.skips > 3) toast('YouTube no deja reproducir estos vídeos ahora mismo. Prueba con otro o inténtalo más tarde.', 7000);
   });
 
   function updateBar() {

@@ -69,6 +69,7 @@ public sealed partial class MainWindow : Window
     private bool _ytReady, _ytPlaying;
     private string? _ytPending;
     private double _ytTime, _ytDuration;
+    private int _errorStreak;   // saltos automáticos seguidos por error (máximo 3)
     private readonly List<CoreWebView2Frame> _ytFrames = [];
     private string _eqScript = "";
     private bool _loadingUi;
@@ -426,6 +427,7 @@ public sealed partial class MainWindow : Window
     {
         if (!card.IsPlayable) return;
         _audioOnly = Scope == "track";
+        _errorStreak = 0;
         _queue = list.Where(c => c.IsPlayable).ToList();
         _index = _queue.FindIndex(c => c.Source == card.Source && c.Id == card.Id);
         if (_index < 0) { _queue = [card]; _index = 0; }
@@ -799,6 +801,7 @@ public sealed partial class MainWindow : Window
                     var d = root.GetProperty("duration").GetDouble();
                     if (d > 0) _ytDuration = d;
                     PlayIcon.Symbol = _ytPlaying ? Symbol.Pause : Symbol.Play;
+                    if (_ytPlaying && _ytTime > 1) _errorStreak = 0;   // ya suena: se acaba la racha de errores
                     break;
                 case "ended" when _mode == Mode.YouTube:
                     Next();
@@ -810,8 +813,13 @@ public sealed partial class MainWindow : Window
                         : $"YouTube no pudo reproducir «{_now?.Title}» (error {code}).");
                     ShowYouTubeLayer(false);
                     _ytPlaying = false;
-                    if (_index + 1 < _queue.Count) { _index++; StartCurrent(); }
-                    else UpdateNowPlayingBar();
+                    _errorStreak++;
+                    if (_errorStreak <= 3 && _index + 1 < _queue.Count) { _index++; StartCurrent(); }
+                    else
+                    {
+                        if (_errorStreak > 3) ShowStatus("YouTube no deja reproducir estos vídeos ahora mismo. Prueba con otro o inténtalo más tarde.");
+                        UpdateNowPlayingBar();
+                    }
                     break;
             }
         }
