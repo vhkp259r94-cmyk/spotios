@@ -23,6 +23,10 @@ mantenerse **idénticos**: si cambias una regex, cámbiala en los tres y en sus 
 | Cambiar los ajustes y los ajustes del ecualizador | (pendiente) | `LibreStream.Core/Services/Settings/AppSettings.cs` | — |
 | Cambiar el sonido del ecualizador | (pendiente) | `LibreStream.App/Assets/eq.js` | — |
 | Cambiar las descargas | (pendiente) | `LibreStream.Core/Services/Downloads/Downloads.cs` | — |
+| **iOS y Android:** cambiar pantallas, tarjetas o textos | `app/src/js/04-app.js` + `app/src/css/app.css` | (igual) | `node app/build.mjs` |
+| **iOS y Android:** reglas de filtro, estanterías, letras, ajustes | `app/src/js/00-core.js` (y `01-stores.js`) | (igual) | `node --test app/test` |
+| **iOS y Android:** lectura de YouTube, descargas, anuncios | `ios/LibreStream/Shell/WebShell.swift` | `android/app/src/main/java/org/librestream/app/` | — |
+| Probar la interfaz móvil en el PC | `node app/build.mjs && node app/dev/server.mjs` → http://localhost:5173 | (igual) | — |
 | Cambiar la biblioteca guardada | (pendiente) | `LibreStream.Core/Services/Library/LibraryStore.cs` | — |
 | Añadir/quitar dominios del bloqueo de anuncios | (pendiente) | `LibreStream.Core/Services/Privacy/AdBlock.cs` | — |
 | Cambiar la URL del catálogo | `ios/project.yml` (`LSCatalogURL`) | `Views/MainWindow.xaml.cs` (`CatalogUrl`) | — |

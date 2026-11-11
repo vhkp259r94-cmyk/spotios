@@ -22,6 +22,12 @@ El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al 
 > (Música solo canciones y sin vídeo; Vídeos solo vídeos), anuncio de lanzamientos nuevos en Inicio, ecualizador de 10 bandas,
 > descargas del catálogo libre (Creative Commons) y ajustes guardados. YouTube no se descarga: se reproduce con su reproductor oficial.
 
+> **iOS y Android (0.5):** una única interfaz web (`app/`) con todas las funciones —Inicio con lanzamientos de la semana,
+> Música por géneros, Vídeos con estanterías, Biblioteca y listas, letras sincronizadas, ecualizador, descargas del
+> catálogo libre y bloqueo de anuncios— dentro de una app nativa pequeña (`ios/` con WKWebView, `android/` con WebView).
+> Windows sigue siendo nativo (WinUI 3) y comparte `app/src/eq.js`. Las apps móviles se compilan en GitHub Actions;
+> aún no se han probado en un dispositivo real.
+
 ## Plan por fases
 
 | Fase | Objetivo | Hitos |
@@ -55,6 +61,12 @@ El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al 
 │   │   ├── Views/{Library,Player}/
 │   │   └── Resources/
 │   └── LibreStreamTests/
+├── app/                       # Interfaz compartida iOS + Android (HTML/CSS/JS, sin dependencias)
+│   ├── src/{js,css,eq.js,index.template.html}
+│   ├── test/core.test.mjs     # Pruebas de Node (node --test app/test)
+│   ├── build.mjs              # Une todo en app/dist/index.html
+│   └── dev/server.mjs         # Servidor local para probar en el navegador
+├── android/                   # WebView + puente nativo (Kotlin) · APK en Releases
 ├── windows/
 │   ├── LibreStream.Core/      # Models/, Services/{Catalog,Matching}/
 │   ├── LibreStream.Core.Tests/# Matching/ (xUnit)
