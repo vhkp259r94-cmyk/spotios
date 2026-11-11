@@ -24,6 +24,7 @@ public sealed class AudioPlayerManager : IDisposable
     public bool IsPlaying => Player.PlaybackSession.PlaybackState == MediaPlaybackState.Playing;
     public TimeSpan Position => Player.PlaybackSession.Position;
     public TimeSpan Duration => Player.PlaybackSession.NaturalDuration;
+    public double Volume { get => Player.Volume; set => Player.Volume = Math.Clamp(value, 0, 1); }
 
     private AudioPlayerManager()
     {

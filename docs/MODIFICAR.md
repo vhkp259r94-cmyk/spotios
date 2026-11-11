@@ -12,6 +12,8 @@ mantenerse **idénticos**: si cambias una regex, cámbiala en los tres y en sus 
 | Añadir campos al catálogo | `Models/Models.swift` | `LibreStream.Core/Models/Catalog.cs` | `schemas/catalog.schema.json` |
 | Cambiar la pantalla de biblioteca | `Views/Library/LibraryView.swift` | `LibreStream.App/Views/MainWindow.xaml(.cs)` | — |
 | Cambiar el mini‑reproductor | `Views/Player/MiniPlayer.swift` | `LibreStream.App/Views/MainWindow.xaml` | — |
+| Cambiar las tarjetas (portada, degradado, textos) | — | `LibreStream.App/Views/MediaCard.cs` | — |
+| Cambiar la pestaña/búsqueda de YouTube | (pendiente) | `LibreStream.App/Views/MainWindow.xaml.cs` (`ShowYouTube`) | — |
 | Cambiar la URL del catálogo | `ios/project.yml` (`LSCatalogURL`) | `Views/MainWindow.xaml.cs` (`CatalogUrl`) | — |
 | Añadir canciones/vídeos | `catalog/catalog.json` | (igual) | `tools/validate_catalog.py` |
 
@@ -30,5 +32,5 @@ dotnet test windows/LibreStream.Core.Tests   # si tienes .NET 8
 
 ## Publicar una versión
 ```bash
-git tag v0.1.1 && git push origin v0.1.1   # genera .ipa y .zip de Windows en Releases
+git tag v0.2.0 && git push origin v0.2.0   # genera .ipa y .zip de Windows en Releases
 ```

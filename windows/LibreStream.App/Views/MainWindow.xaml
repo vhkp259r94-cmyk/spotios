@@ -2,47 +2,211 @@
     x:Class="LibreStream.App.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:core="using:LibreStream.Core"
+    xmlns:local="using:LibreStream.App"
     Title="LibreStream">
-    <Grid Padding="16" RowSpacing="12">
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="Root" RequestedTheme="Dark">
+        <Grid.Resources>
+            <Style x:Key="CardButton" TargetType="Button">
+                <Setter Property="Padding" Value="8" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="VerticalAlignment" Value="Top" />
+            </Style>
+
+            <!-- Tarjeta apaisada (vídeo) -->
+            <DataTemplate x:Key="VideoCard" x:DataType="local:MediaCard">
+                <Button Style="{StaticResource CardButton}" Tag="{x:Bind}" Click="Card_Click">
+                    <StackPanel Width="256" Spacing="6">
+                        <Grid Height="144" CornerRadius="8" Background="{x:Bind Tile}">
+                            <TextBlock Text="{x:Bind Initials}" FontSize="40" FontWeight="Bold" Opacity="0.85"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Image Source="{x:Bind Artwork}" Stretch="UniformToFill" />
+                            <Border Background="#B0000000" CornerRadius="4" Padding="6,2" Margin="6"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                                <TextBlock Text="{x:Bind DurationText}" FontSize="12" />
+                            </Border>
+                        </Grid>
+                        <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{x:Bind Subtitle}" FontSize="12" Opacity="0.65" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Button>
+            </DataTemplate>
+
+            <!-- Tarjeta cuadrada (música) -->
+            <DataTemplate x:Key="TrackCard" x:DataType="local:MediaCard">
+                <Button Style="{StaticResource CardButton}" Tag="{x:Bind}" Click="Card_Click">
+                    <StackPanel Width="160" Spacing="6">
+                        <Grid Height="160" CornerRadius="8" Background="{x:Bind Tile}">
+                            <TextBlock Text="{x:Bind Initials}" FontSize="44" FontWeight="Bold" Opacity="0.9"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Image Source="{x:Bind Artwork}" Stretch="UniformToFill" />
+                        </Grid>
+                        <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{x:Bind Subtitle}" FontSize="12" Opacity="0.65" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Button>
+            </DataTemplate>
+        </Grid.Resources>
+
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="40" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <AutoSuggestBox x:Name="Search" PlaceholderText="Buscar artista o título" QueryIcon="Find"
-                        TextChanged="Search_TextChanged" />
-
-        <ListView x:Name="Library" Grid.Row="1" IsItemClickEnabled="True" ItemClick="Library_ItemClick">
-            <ListView.ItemTemplate>
-                <DataTemplate x:DataType="core:CatalogItem">
-                    <StackPanel Padding="0,6">
-                        <TextBlock Text="{x:Bind Title}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <TextBlock Text="{x:Bind Artist}" Opacity="0.7" />
-                    </StackPanel>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
-
-        <MediaPlayerElement x:Name="Video" Grid.Row="2" Height="240" Visibility="Collapsed"
-                            AreTransportControlsEnabled="True" />
-
-        <Grid Grid.Row="3" ColumnSpacing="8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel>
-                <TextBlock x:Name="NowTitle" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <TextBlock x:Name="NowArtist" Opacity="0.7" />
-                <TextBlock x:Name="Status" Foreground="Red" />
+        <!-- Barra de título -->
+        <Grid x:Name="TitleBar">
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="16,0" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE8D6;" FontSize="14" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                <TextBlock Text="LibreStream" FontSize="12" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                <Button Click="Prev_Click" ToolTipService.ToolTip="Anterior"><SymbolIcon Symbol="Previous" /></Button>
-                <Button Click="Play_Click" ToolTipService.ToolTip="Reproducir/Pausa"><SymbolIcon x:Name="PlayIcon" Symbol="Play" /></Button>
-                <Button Click="Next_Click" ToolTipService.ToolTip="Siguiente"><SymbolIcon Symbol="Next" /></Button>
+        </Grid>
+
+        <!-- Navegación + contenido -->
+        <NavigationView x:Name="Nav" Grid.Row="1" PaneDisplayMode="Left" OpenPaneLength="220"
+                        IsBackButtonVisible="Collapsed" IsSettingsVisible="False" IsPaneToggleButtonVisible="False"
+                        SelectionChanged="Nav_SelectionChanged">
+            <NavigationView.AutoSuggestBox>
+                <AutoSuggestBox x:Name="Search" PlaceholderText="Buscar" QueryIcon="Find" TextChanged="Search_TextChanged" QuerySubmitted="Search_QuerySubmitted" />
+            </NavigationView.AutoSuggestBox>
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="Inicio" Icon="Home" Tag="all" IsSelected="True" />
+                <NavigationViewItem Content="Música" Icon="Audio" Tag="track" />
+                <NavigationViewItem Content="Vídeos" Icon="Video" Tag="video" />
+                <NavigationViewItemSeparator />
+                <NavigationViewItem x:Name="YouTubeItem" Content="YouTube" Icon="Globe" Tag="youtube" />
+            </NavigationView.MenuItems>
+
+            <Grid>
+                <ScrollViewer x:Name="Browse" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Padding="28,20,28,28" Spacing="14">
+
+                        <!-- Destacado -->
+                        <Grid x:Name="Hero" Height="280" CornerRadius="14" Visibility="Collapsed">
+                            <Border x:Name="HeroTile" />
+                            <Image x:Name="HeroImage" Stretch="UniformToFill" Opacity="0.55" />
+                            <Border>
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#E6000000" Offset="0" />
+                                        <GradientStop Color="#00000000" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <StackPanel VerticalAlignment="Bottom" Margin="32" Spacing="6" MaxWidth="560" HorizontalAlignment="Left">
+                                <TextBlock Text="DESTACADO" FontSize="12" CharacterSpacing="120" Opacity="0.75" />
+                                <TextBlock x:Name="HeroTitle" FontSize="40" FontWeight="Bold" TextWrapping="Wrap" />
+                                <TextBlock x:Name="HeroSubtitle" Opacity="0.8" />
+                                <Button Style="{StaticResource AccentButtonStyle}" Margin="0,10,0,0" Padding="20,8" Click="Hero_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <SymbolIcon Symbol="Play" />
+                                        <TextBlock Text="Reproducir" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock x:Name="Status" Foreground="#FF8A80" TextWrapping="Wrap" Visibility="Collapsed" />
+                        <TextBlock x:Name="Empty" Text="No hay resultados en el catálogo libre." Opacity="0.7" Visibility="Collapsed" />
+                        <Button x:Name="YouTubeSearchButton" Visibility="Collapsed" Click="YouTubeSearch_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <SymbolIcon Symbol="Globe" />
+                                <TextBlock x:Name="YouTubeSearchText" />
+                            </StackPanel>
+                        </Button>
+
+                        <StackPanel x:Name="VideosSection" Spacing="6">
+                            <TextBlock Text="Películas y cortos" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
+                            <ItemsRepeater x:Name="VideosRepeater" ItemTemplate="{StaticResource VideoCard}">
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
+                                </ItemsRepeater.Layout>
+                            </ItemsRepeater>
+                        </StackPanel>
+
+                        <StackPanel x:Name="TracksSection" Spacing="6">
+                            <TextBlock Text="Música" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
+                            <ItemsRepeater x:Name="TracksRepeater" ItemTemplate="{StaticResource TrackCard}">
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
+                                </ItemsRepeater.Layout>
+                            </ItemsRepeater>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- YouTube oficial embebido (búsqueda y reproducción) -->
+                <Grid x:Name="YouTubeLayer" Visibility="Collapsed">
+                    <WebView2 x:Name="Web" />
+                </Grid>
+
+                <!-- Reproductor de vídeo a pantalla completa del área de contenido -->
+                <Grid x:Name="VideoLayer" Background="Black" Visibility="Collapsed">
+                    <MediaPlayerElement x:Name="Video" AreTransportControlsEnabled="False" Stretch="Uniform" />
+                    <Button Margin="16" VerticalAlignment="Top" Click="CloseVideo_Click" ToolTipService.ToolTip="Volver">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <SymbolIcon Symbol="Back" />
+                            <TextBlock Text="Volver" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Grid>
+        </NavigationView>
+
+        <!-- Barra de reproducción -->
+        <Grid Grid.Row="2" Padding="16,10" ColumnSpacing="16" Background="#CC101014"
+              BorderBrush="#22FFFFFF" BorderThickness="0,1,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="200" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <Grid Width="48" Height="48" CornerRadius="6">
+                    <Border x:Name="NowTile" Background="#22FFFFFF" />
+                    <Image x:Name="NowImage" Stretch="UniformToFill" />
+                </Grid>
+                <StackPanel VerticalAlignment="Center" MaxWidth="190">
+                    <TextBlock x:Name="NowTitle" Text="Nada en reproducción" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="NowArtist" FontSize="12" Opacity="0.65" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Spacing="2" MaxWidth="720">
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                    <Button Click="Prev_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Anterior">
+                        <SymbolIcon Symbol="Previous" />
+                    </Button>
+                    <Button Click="Play_Click" Style="{StaticResource AccentButtonStyle}" Width="44" Height="44" CornerRadius="22" Padding="0"
+                            ToolTipService.ToolTip="Reproducir / Pausa">
+                        <SymbolIcon x:Name="PlayIcon" Symbol="Play" />
+                    </Button>
+                    <Button Click="Next_Click" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="Siguiente">
+                        <SymbolIcon Symbol="Next" />
+                    </Button>
+                </StackPanel>
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="Elapsed" Text="0:00" FontSize="12" Opacity="0.7" VerticalAlignment="Center" />
+                    <Slider x:Name="Progress" Grid.Column="1" Minimum="0" Maximum="1" IsThumbToolTipEnabled="False"
+                            ValueChanged="Progress_ValueChanged" />
+                    <TextBlock x:Name="Total" Grid.Column="2" Text="0:00" FontSize="12" Opacity="0.7" VerticalAlignment="Center" />
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <SymbolIcon Symbol="Volume" />
+                <Slider x:Name="Volume" Width="130" Minimum="0" Maximum="100" Value="80" ValueChanged="Volume_ValueChanged" />
             </StackPanel>
         </Grid>
     </Grid>
