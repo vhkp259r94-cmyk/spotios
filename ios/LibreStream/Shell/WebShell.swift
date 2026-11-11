@@ -245,6 +245,28 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
         }
     }
 
+    // MARK: - Ayuda de pruebas (simulador): -lsRoute home|music|videos|library|settings  -lsAction play
+
+    private var debugHookDone = false
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard !debugHookDone else { return }
+        debugHookDone = true
+        let args = CommandLine.arguments
+        func value(_ key: String) -> String? {
+            guard let i = args.firstIndex(of: key), i + 1 < args.count else { return nil }
+            return args[i + 1]
+        }
+        if let route = value("-lsRoute"), ["home", "music", "videos", "library", "settings"].contains(route) {
+            webView.evaluateJavaScript("location.hash='#/\(route)'")
+        }
+        if value("-lsAction") == "play" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                webView.evaluateJavaScript("var c=document.querySelector('.card'); if(c) c.click();")
+            }
+        }
+    }
+
     // MARK: - Navegación: los enlaces externos se abren en Safari; sin ventanas emergentes
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,

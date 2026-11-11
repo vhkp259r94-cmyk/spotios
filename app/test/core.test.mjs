@@ -201,3 +201,24 @@ test('biblioteca, listas y descargas se guardan y se recuperan', () => {
   s.downloads.remove('v1');
   assert.equal(LS.createStores(st).downloads.all().length, 0);
 });
+
+test('caché con caducidad: guarda, caduca y se limita', () => {
+  const m = new Map();
+  const st = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)) };
+  let t = 1000;
+  const c = LS.createCache(st, { ttl: 100, max: 3, now: () => t });
+  c.set('a', [1]);
+  assert.deepEqual(c.get('a'), [1]);
+  assert.deepEqual(LS.createCache(st, { ttl: 100, now: () => t }).get('a'), [1]);   // sobrevive a reabrir la app
+  t += 101;
+  assert.equal(c.get('a'), undefined);                                               // caducada
+  t += 1; c.set('b', 1); t += 1; c.set('c', 2); t += 1; c.set('d', 3); t += 1; c.set('e', 4);
+  assert.equal(c.size(), 3);                                                         // máximo 3: se van las más antiguas
+  assert.equal(c.get('b'), undefined);
+  assert.equal(c.get('e'), 4);
+  c.set('grande', 'x'.repeat(90000));
+  assert.equal(c.get('grande'), undefined);                                          // nada enorme
+  assert.equal(LS.createCache(st, {}).get('zzz'), undefined);
+  m.set('ls.cache', '{ roto');
+  assert.equal(LS.createCache(st, {}).size(), 0);                                    // archivo roto: se ignora
+});

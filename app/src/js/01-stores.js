@@ -29,6 +29,34 @@ var LS = globalThis.LS = globalThis.LS || {};
     return { eqEnabled: !!s.eqEnabled, eqPreset: preset, eqBands: bands, adBlock: s.adBlock !== false, volume };
   };
 
+  /**
+   * Caché con caducidad para resultados ya analizados (unos pocos KB cada uno, no las páginas de 1-2 MB de YouTube).
+   * Evita descargar lo mismo en cada arranque: ahorra datos, batería y calor.
+   */
+  LS.createCache = function (storage, opts) {
+    opts = opts || {};
+    const ttl = opts.ttl || 30 * 60 * 1000, max = opts.max || 24, name = 'cache';
+    const now = opts.now || (() => Date.now());
+    let data = read(storage, name, {});
+    if (!data || typeof data !== 'object' || Array.isArray(data)) data = {};
+    const persist = () => write(storage, name, data);
+    return {
+      get(key) {
+        const e = data[key];
+        if (!e || typeof e.t !== 'number' || now() - e.t > ttl) return undefined;
+        return e.v;
+      },
+      set(key, value) {
+        if (JSON.stringify(value).length > 80000) return;      // nada enorme en el almacenamiento del teléfono
+        data[key] = { t: now(), v: value };
+        const keys = Object.keys(data).sort((x, y) => data[x].t - data[y].t);
+        for (const k of keys.slice(0, Math.max(0, keys.length - max))) delete data[k];   // se queda con los más recientes
+        persist();
+      },
+      size: () => Object.keys(data).length,
+    };
+  };
+
   LS.createStores = function (storage) {
     const itemKey = (i) => i.src + ':' + i.id;
     // De cada elemento solo se guarda lo necesario para volver a mostrarlo y reproducirlo

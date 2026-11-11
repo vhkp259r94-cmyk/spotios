@@ -88,6 +88,7 @@ var LS = globalThis.LS = globalThis.LS || {};
   }
 
   setInterval(() => {
+    if (document.hidden) return;                       // con la app en segundo plano no se actualiza la pantalla
     if (mode !== 'yt' || !ytReady || !yt || typeof yt.getCurrentTime !== 'function') return;
     const t = yt.getCurrentTime(), d = yt.getDuration();
     setState({ time: Number.isFinite(t) ? t : 0, duration: Number.isFinite(d) && d > 0 ? d : st.duration });
@@ -100,14 +101,17 @@ var LS = globalThis.LS = globalThis.LS || {};
     state: () => Object.assign({}, st),
     mode: () => mode,
 
-    async load(item) {
+    async load(item, opts) {
+      const audioOnly = !!(opts && opts.audioOnly);
       st.time = 0; st.duration = item.duration || 0; st.playing = true;
       if (item.src === 'yt') {
         const m = media(); m.pause(); m.removeAttribute('src');
         mode = 'yt';
         setState({});
         try { await ensureYT(); } catch (e) { emit('error', { code: 'api', message: e.message }); return; }
-        if (ytReady) yt.loadVideoById(item.id); else pendingId = item.id;
+        // En solo audio se pide la imagen más pequeña (menos decodificación = menos calor y batería)
+        if (ytReady) yt.loadVideoById(audioOnly ? { videoId: item.id, suggestedQuality: 'tiny' } : item.id); else pendingId = item.id;
+        if (audioOnly && ytReady && typeof yt.setPlaybackQuality === 'function') yt.setPlaybackQuality('tiny');
         postEq();
       } else {
         if (yt && ytReady && typeof yt.stopVideo === 'function') yt.stopVideo();

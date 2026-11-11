@@ -67,6 +67,18 @@ class MainActivity : Activity() {
                 return loader.shouldInterceptRequest(request.url)
             }
 
+            // Ayuda de pruebas (emulador): --es route home|music|videos|library|settings  --es action play
+            private var hookDone = false
+            override fun onPageFinished(view: WebView, url: String?) {
+                if (hookDone) return
+                hookDone = true
+                val route = this@MainActivity.intent.getStringExtra("route")
+                if (route in setOf("home", "music", "videos", "library", "settings")) view.evaluateJavascript("location.hash='#/$route'", null)
+                if (this@MainActivity.intent.getStringExtra("action") == "play") {
+                    view.postDelayed({ view.evaluateJavascript("var c=document.querySelector('.card'); if(c) c.click();", null) }, 8000)
+                }
+            }
+
             // Los enlaces externos se abren en el navegador; la propia app y los iframes siguen dentro
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (request.url.host == ASSET_HOST || !request.isForMainFrame) return false

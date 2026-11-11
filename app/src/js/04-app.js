@@ -48,13 +48,24 @@
     toast.t = setTimeout(() => t.classList.remove('show'), ms || 4500);
   }
 
+  const persistent = LS.createCache(safeStorage(), { ttl: 30 * 60 * 1000, max: 24 });
+  let running = 0;
+  const waiting = [];
+  const slot = () => new Promise((res) => { if (running < 3) { running++; res(); } else waiting.push(res); });
+  const release = () => { const n = waiting.shift(); if (n) n(); else running--; };
+
   async function ytSearch(query, opts) {
     const k = JSON.stringify([query, opts || {}]);
     if (cache.has(k)) return cache.get(k);
-    const html = await Native.fetchText(LS.searchUrl(query, opts));
-    const r = LS.parseYouTube(html);
-    cache.set(k, r);
-    return r;
+    const saved = persistent.get(k);
+    if (saved) { cache.set(k, saved); return saved; }
+    await slot();                                      // como mucho 3 descargas a la vez (cada página pesa 1-2 MB)
+    try {
+      const r = LS.parseYouTube(await Native.fetchText(LS.searchUrl(query, opts)));
+      cache.set(k, r);
+      persistent.set(k, r);
+      return r;
+    } finally { release(); }
   }
 
   const hue = (id) => { let h = 17; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h) % 360; };
@@ -108,7 +119,7 @@
       <section><h2 id="hitsTitle">${q ? 'Resultados en YouTube' : sc === 'track' ? 'Canciones del momento' : sc === 'video' ? 'Videoclips del momento' : 'Éxitos del momento'}</h2>
       <div id="hits"><div class="busy">Cargando…</div></div></section>
       <section id="savedRow" hidden><h2>De tu biblioteca</h2><div id="savedGrid"></div></section>`;
-    if (!q) { renderHero(); loadReleases(id); }
+    if (!q) { renderHero(); setTimeout(() => loadReleases(id), 1500); }
     const saved = store.library.items().slice(0, 8).map(savedItem);
     if (!q && saved.length) { $('#savedRow').hidden = false; $('#savedGrid').innerHTML = grid(setList('home-saved', saved) && 'home-saved', saved, 'video'); }
     await showResults('#hits', id, 'home');
@@ -156,13 +167,13 @@
     const g = LS.guessTrack(it.title, it.sub);
     el.hidden = false;
     el.style.setProperty('--h', hue(it.id));
-    el.innerHTML = `<img alt="" src="https://i.ytimg.com/vi/${esc(it.id)}/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${esc(it.id)}/hqdefault.jpg'">
+    el.innerHTML = `<img alt="" src="https://i.ytimg.com/vi/${esc(it.id)}/${innerWidth < 800 ? 'hqdefault' : 'maxresdefault'}.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${esc(it.id)}/hqdefault.jpg'">
       <div class="shade"></div><div class="txt"><div class="label">NUEVO LANZAMIENTO${it.published ? ' · ' + esc(it.published.toUpperCase()) : ''}</div>
       <div class="big">${esc(g.title)}</div><div class="s">${esc(it.sub)} · ${LS.formatTime(it.duration)}</div>
       <button class="primary" data-act="play" data-key="${esc(it.key)}" data-list="releases">▶ Reproducir</button></div>
       <div class="dots">${S.releases.map((_, i) => `<span class="${i === S.heroIndex % S.releases.length ? 'on' : ''}"></span>`).join('')}</div>`;
   }
-  setInterval(() => { if (S.releases.length > 1 && S.page === 'home' && !S.query) { S.heroIndex = (S.heroIndex + 1) % S.releases.length; renderHero(); } }, 9000);
+  setInterval(() => { if (!document.hidden && S.releases.length > 1 && S.page === 'home' && !S.query) { S.heroIndex = (S.heroIndex + 1) % S.releases.length; renderHero(); } }, 9000);
 
   // ---------- Música ----------
   async function renderMusic(v, id) {
@@ -289,7 +300,7 @@
       : st.attached ? (st.level > 0 ? `Activo: el sonido de YouTube pasa por el ecualizador (nivel ${Math.round(st.level)}).` : 'Conectado al reproductor; esperando sonido.')
       : st.error ? 'No se pudo conectar: ' + st.error : 'Esperando a que empiece el sonido de YouTube…';
   }
-  setInterval(() => { if (S.page === 'settings') refreshEqStatus(); }, 2500);
+  setInterval(() => { if (!document.hidden && S.page === 'settings') refreshEqStatus(); }, 2500);
 
   function applyEq() { const s = store.settings.get(); Player.setEq(s.eqBands, s.eqEnabled); }
 
@@ -314,7 +325,7 @@
     const it = S.queue[S.index];
     if (!it) return;
     S.now = it; S.time = 0; S.duration = it.duration || 0; S.lyrics = null; S.lyricsFor = ''; S.lyricIndex = -1;
-    Player.load(resolveLocal(it));
+    Player.load(resolveLocal(it), { audioOnly: S.audioOnly });
     showVideo(!S.audioOnly);
     updateBar();
     if (!$('#lyrics').hidden) loadLyrics();
@@ -346,6 +357,7 @@
   function updateBar() {
     const it = S.now;
     if (!it) return;
+    document.body.classList.add('has-track');
     $('#nowTitle').textContent = it.title;
     $('#nowSub').textContent = it.sub + (it.src === 'yt' ? ' · YouTube' : '');
     $('#nowImg').src = it.thumb || '';
@@ -468,6 +480,8 @@
     }, 600);
   });
 
+  $('#q').addEventListener('focus', () => document.body.classList.add('kb'));
+  $('#q').addEventListener('blur', () => document.body.classList.remove('kb'));
   window.addEventListener('hashchange', route);
 
   // ---------- Arranque ----------
