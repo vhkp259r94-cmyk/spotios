@@ -203,6 +203,7 @@ public sealed partial class MainWindow : Window
         Highlight(Genres, _genre);
         Genres.Visibility = Vis(_kind == "track" && q.Length == 0);
         PlaylistActions.Visibility = Vis(playlist is not null);
+        LibraryActions.Visibility = Vis(_kind == "library");
         ShelvesHost.Visibility = Vis(_kind == "video" && q.Length == 0);
 
         // Título y ayuda de cada apartado
@@ -1387,6 +1388,35 @@ public sealed partial class MainWindow : Window
     private void Card_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         if (sender is UIElement ui) ui.Translation = Vector3.Zero;
+    }
+
+    /// <summary>Guarda la biblioteca y las listas en un archivo (el mismo formato que la web y el móvil) donde elija el usuario.</summary>
+    private async void ExportLibrary_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_library.Items.Count == 0 && _playlists.All.Count == 0)
+            {
+                ShowStatus("Aún no hay nada que exportar: guarda canciones o crea listas.");
+                return;
+            }
+            var picker = new Windows.Storage.Pickers.FileSavePicker
+            {
+                SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary,
+                SuggestedFileName = Path.GetFileNameWithoutExtension(LibraryBackup.FileName(DateTimeOffset.Now)),
+            };
+            picker.FileTypeChoices.Add("Copia de Nsound", [".json"]);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            var file = await picker.PickSaveFileAsync();
+            if (file is null) return;                                   // cancelado
+            await Windows.Storage.FileIO.WriteTextAsync(file, LibraryBackup.Build(_library.Items, _playlists.All, DateTimeOffset.Now));
+            ShowStatus($"Biblioteca exportada: {_library.Items.Count} guardadas y {_playlists.All.Count} listas.");
+        }
+        catch (Exception ex)
+        {
+            App.LogOnce("Exportar biblioteca", ex);
+            ShowStatus("No se pudo guardar el archivo.");
+        }
     }
 
     private void Look_Changed(object sender, SelectionChangedEventArgs e)

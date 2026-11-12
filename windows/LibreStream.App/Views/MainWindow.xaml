@@ -147,6 +147,14 @@
                             </Button>
                             <Button Content="Eliminar lista" Click="DeleteList_Click" />
                         </StackPanel>
+                        <StackPanel x:Name="LibraryActions" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" Visibility="Collapsed">
+                            <Button Click="ExportLibrary_Click" AutomationProperties.Name="Exportar la biblioteca a un archivo">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE896;" FontSize="14" />
+                                    <TextBlock Text="Exportar" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                         <StackPanel x:Name="ScopeChips" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" Visibility="Collapsed" />
                         <StackPanel x:Name="Genres" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" Visibility="Collapsed" />
 
