@@ -720,68 +720,140 @@
 
 
   // ---------- Importar una canción, lista pública o artista ----------
-  const importing = { busy: false, cancel: false };
+  const importing = { busy: false, cancel: false, pauseUntil: 0, files: null };
+  const PENDING_KEY = 'ls.importPending';
+  const pendingGet = () => { try { const v = JSON.parse(recentStore.getItem(PENDING_KEY) || 'null'); return v && v.plId && Array.isArray(v.wanted) ? v : null; } catch (e) { return null; } };
+  const pendingSet = (v) => { try { recentStore.setItem(PENDING_KEY, JSON.stringify(v || null)); } catch (e) { /* sin almacenamiento */ } };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
   function openImport() {
     let o = $('#imp');
     if (!o) { o = document.createElement('div'); o.id = 'imp'; o.className = 'imp'; document.body.appendChild(o); }
+    const pend = pendingGet();
     o.innerHTML = `<div class="imp-box" role="dialog" aria-modal="true" aria-label="Importar lista de reproducción">
       <h2>Importar lista de reproducción</h2><p class="imp-sub">Importa una canción, una lista pública o un artista.</p>
+      ${pend ? `<div class="imp-pend">Importación sin terminar: «${esc(pend.name)}» (${pend.total - pend.wanted.length} de ${pend.total}).
+        <div class="imp-btns"><button data-act="importdrop">Descartar</button><button class="primary" data-act="importresume">Continuar</button></div></div>` : ''}
       <input id="impUrl" type="url" inputmode="url" autocomplete="off" placeholder="${esc(LS.IMPORT_HINT)}…" aria-label="Enlace">
-      <p class="imp-note">${esc(LS.IMPORT_NOTICE)}</p><div id="impOut" class="imp-out" aria-live="polite"></div>
+      <div class="imp-or">o una lista grande desde un archivo</div>
+      <label class="imp-file"><input id="impFile" type="file" accept=".csv,.json,.txt,text/csv,application/json,text/plain" hidden>Elegir archivo (CSV, JSON o TXT)</label>
+      <p class="imp-note">${esc(LS.IMPORT_NOTICE)} Con archivo, hasta ${LS.IMPORT_MAX} canciones por lista: exporta tu lista de Spotify con Exportify (CSV) o con «Descargar tus datos» (JSON).</p>
+      <div id="impOut" class="imp-out" aria-live="polite"></div>
       <div class="imp-btns"><button data-act="importclose">Cancelar</button><button id="impGo" class="primary" data-act="importgo">Importar</button></div></div>`;
     o.hidden = false;
     o.onclick = (e) => { if (e.target === o) closeImport(); };
     o.onkeydown = (e) => { if (e.key === 'Escape') closeImport(); if (e.key === 'Enter' && e.target.id === 'impUrl') runImport(); };
+    $('#impFile').onchange = readImportFile;
     setTimeout(() => $('#impUrl') && $('#impUrl').focus(), 50);
   }
   function closeImport() { importing.cancel = true; const o = $('#imp'); if (o) o.hidden = true; }
 
+  async function readImportFile(e) {
+    const f = e.target.files && e.target.files[0], out = $('#impOut');
+    if (!f || importing.busy) return;
+    if (f.size > 6 * 1024 * 1024) { out.textContent = 'El archivo es demasiado grande (máximo 6 MB).'; return; }
+    let text;
+    try { text = await f.text(); } catch (err) { out.textContent = 'No pude leer el archivo.'; return; }
+    const r = LS.parseImportFile(f.name, text);
+    if (r.error) { out.textContent = r.error; return; }
+    importing.files = r.playlists;
+    if (r.playlists.length === 1) { startFromFile(0); return; }
+    out.innerHTML = `<b>Elige la lista (${r.playlists.length}):</b><div class="imp-pick">${r.playlists.slice(0, 60).map((l, i) =>
+      `<button data-act="importpick" data-i="${i}">${esc(l.name)} · ${l.total}</button>`).join('')}</div>`;
+  }
+  function startFromFile(i) {
+    const l = importing.files && importing.files[i];
+    if (!l) return;
+    importTracks({ name: l.name, plId: null, wanted: l.tracks, total: l.tracks.length, found: 0, missing: [], tries: {}, extra: l.total > l.tracks.length ? l.total : 0 });
+  }
+
   async function runImport() {
-    const out = $('#impOut'), btn = $('#impGo');
+    const out = $('#impOut');
     if (importing.busy) { out.textContent = 'Espera un momento: se está terminando la importación anterior.'; return; }
     const link = LS.parseImportLink($('#impUrl').value);
     if (link.error) { out.textContent = link.error; return; }
-    importing.busy = true; importing.cancel = false; btn.disabled = true;
+    importing.busy = true; importing.cancel = false; $('#impGo').disabled = true;
+    let info;
     try {
       out.textContent = 'Leyendo el enlace…';
       let text;
       try { text = await Native.fetchText(link.fetchUrl); } catch (e) { throw new Error('No se pudo abrir el enlace (¿es público? ¿hay conexión?).'); }
-      const info = LS.parseImported(link, text);
-      const wanted = info.tracks;
-      if (!wanted.length) throw new Error('No se encontraron canciones. La lista debe ser pública, y el servicio puede haber cambiado su página.');
-      const found = [], missing = [];
-      let n = 0;
-      const one = async (t) => {
-        try {
-          const res = (await musicSearch((t.artist + ' ' + t.title).trim())).filter((m) => LS.isSong({ title: m.title, duration: m.duration }));
-          const m = LS.pickImportMatch(t, res);
-          if (m) return musicItem(m);
-        } catch (e) { /* esa canción queda como no encontrada */ }
-        return null;
-      };
-      const results = new Array(wanted.length);
-      let next = 0;
-      await Promise.all([0, 1, 2].map(async () => {
-        while (next < wanted.length && !importing.cancel) {
-          const i = next++;
-          results[i] = await one(wanted[i]);
-          out.textContent = `Buscando en YouTube Music… ${++n} de ${wanted.length}`;
-        }
-      }));
-      if (importing.cancel) return;
-      wanted.forEach((t, i) => (results[i] ? found.push(results[i]) : missing.push((t.artist ? t.artist + ' — ' : '') + t.title)));
-      if (!found.length) throw new Error('No se encontró ninguna de las canciones en YouTube Music.');
-      const pl = store.playlists.create(info.name || 'Lista importada');
-      found.forEach((it) => store.playlists.toggle(pl.id, it));
-      out.innerHTML = `<b>${found.length} de ${wanted.length} canciones</b> añadidas a «${esc(pl.name)}».`
-        + (missing.length ? `<details><summary>${missing.length} sin encontrar</summary><ul>${missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul></details>` : '')
+      info = LS.parseImported(link, text);
+      if (!info.tracks.length) throw new Error('No se encontraron canciones. La lista debe ser pública, y el servicio puede haber cambiado su página.');
+    } catch (e) { out.textContent = e.message || 'No se pudo importar.'; importing.busy = false; $('#impGo').disabled = false; return; }
+    importing.busy = false;
+    importTracks({ name: info.name || 'Lista importada', plId: null, wanted: info.tracks, total: info.tracks.length, found: 0, missing: [], tries: {}, extra: 0 });
+  }
+
+  // Busca una canción; si YouTube pide calma (429 / error de red) espera y reintenta. Devuelve { item } | { miss } | { retry }
+  async function searchOne(t) {
+    const q = (t.artist + ' ' + t.title).trim();
+    for (let a = 0; a < 2; a++) {
+      const wait = importing.pauseUntil - Date.now();
+      if (wait > 0) await sleep(wait);
+      if (importing.cancel) return { retry: true };
+      try {
+        const res = (await musicSearch(q)).filter((m) => LS.isSong({ title: m.title, duration: m.duration }));
+        const m = LS.pickImportMatch(t, res);
+        return m ? { item: musicItem(m) } : { miss: true };
+      } catch (e) {
+        if (!/429|HTTP 5|timeout|network|fetch|conex|abort/i.test(String(e && e.message))) return { miss: true };   // sin resultados: no es un límite
+        importing.pauseUntil = Date.now() + 10000 * (a + 1);
+      }
+    }
+    return { retry: true };
+  }
+
+  // Importa por lotes de 24 con 3 búsquedas a la vez; guarda cada lote en la lista y el avance, para poder continuar si se corta
+  async function importTracks(state) {
+    const out = $('#impOut'), btn = $('#impGo');
+    for (let i = 0; i < 100 && importing.busy; i++) await sleep(100);         // si una importación cerrada a medias aún termina su lote, se espera
+    importing.busy = true; importing.cancel = false; btn.disabled = true; btn.hidden = false;
+    if (!state.plId || !store.playlists.find(state.plId)) state.plId = store.playlists.create(state.name || 'Lista importada').id;
+    const pl = store.playlists.find(state.plId);
+    let strikes = 0;
+    try {
+      while (state.wanted.length && !importing.cancel) {
+        const chunk = state.wanted.slice(0, 24), items = [], again = [], done = new Set();
+        let next = 0;
+        await Promise.all([0, 1, 2].map(async () => {
+          while (next < chunk.length && !importing.cancel) {
+            const t = chunk[next++], r = await searchOne(t);
+            if (r.retry && importing.cancel) break;                     // cerrado a medias: esta queda pendiente
+            done.add(t);
+            if (r.item) items.push(r.item);
+            else if (r.miss) state.missing.push((t.artist ? t.artist + ' — ' : '') + t.title);
+            else {
+              const k = t.title + '|' + t.artist;
+              state.tries[k] = (state.tries[k] || 0) + 1;
+              if (state.tries[k] >= 3) state.missing.push((t.artist ? t.artist + ' — ' : '') + t.title + ' (YouTube no respondió)'); else again.push(t);
+            }
+            const paused = importing.pauseUntil > Date.now();
+            out.textContent = `Buscando en YouTube Music… ${state.total - state.wanted.length + next - again.length} de ${state.total} · ${state.found + items.length} encontradas${paused ? ' · YouTube pidió una pausa, reintentando…' : ''}`;
+          }
+        }));
+        // Se guarda siempre lo ya buscado, aunque se haya cerrado a medias, para poder continuar sin repetir
+        const added = store.playlists.addMany(state.plId, items);
+        state.found += added; state.dups = (state.dups || 0) + (items.length - added);
+        state.wanted = state.wanted.filter((t) => !done.has(t)).concat(again);
+        pendingSet(state.wanted.length ? state : null);
+        if (importing.cancel) break;
+        strikes = again.length === chunk.length ? strikes + 1 : 0;
+        if (strikes >= 3) { out.textContent = `YouTube está limitando las búsquedas. Se guardó lo hecho (${state.found} de ${state.total}); pulsa «Importar» más tarde y «Continuar».`; return; }
+      }
+      if (importing.cancel) return;                                   // cerrado a medias: queda guardado para continuar
+      pendingSet(null);
+      if (!state.found) throw new Error('No se encontró ninguna de las canciones en YouTube Music.');
+      out.innerHTML = `<b>${state.found} de ${state.total} canciones</b> añadidas a «${esc(pl.name)}».`
+        + (state.dups ? `<p class="imp-note">${state.dups} coincidían con canciones ya añadidas (la misma versión) y no se repiten.</p>` : '')
+        + (state.extra ? `<p class="imp-note">Tu lista tiene ${state.extra} canciones: se importaron las primeras ${LS.IMPORT_MAX}.</p>` : '')
+        + (state.missing.length ? `<details><summary>${state.missing.length} sin encontrar</summary><ul>${state.missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul></details>` : '')
         + `<button class="primary" data-act="importopen" data-id="${esc(pl.id)}">Abrir lista</button>`;
       btn.hidden = true;
     } catch (e) {
       out.textContent = e.message || 'No se pudo importar.';
     } finally { importing.busy = false; btn.disabled = false; }
   }
-
 
   // ---------- Cola de reproducción ----------
   function applyQueue(r) { S.queue = r.queue; S.index = r.index; }
@@ -887,6 +959,9 @@
       case 'qclear': applyQueue(LS.queueClearUpcoming(S.queue, S.index)); renderQueue(); break;
       case 'import': openImport(); break;
       case 'importgo': runImport(); break;
+      case 'importpick': startFromFile(Number(d.i)); break;
+      case 'importresume': { const pe = pendingGet(); if (pe) importTracks(pe); break; }
+      case 'importdrop': pendingSet(null); openImport(); break;
       case 'importclose': closeImport(); break;
       case 'importopen': { const id = d.id; closeImport(); go('#/library/pl/' + id); break; }
       case 'newlistwith': $('#addMenu').hidden = true; newList(true); break;

@@ -305,7 +305,7 @@ test('importar: lectura de Spotify, Deezer, YouTube y SoundCloud', () => {
   assert.deepEqual(LS.parseImported({ service: 'youtube', kind: 'playlist' }, yt), { name: 'PL', tracks: [{ title: 'Song', artist: 'Band' }] });
   assert.deepEqual(LS.parseImported({ service: 'soundcloud', kind: 'track' }, JSON.stringify({ title: 'Flickermood by Forss', author_name: 'Forss' })).tracks, [{ title: 'Flickermood', artist: 'Forss' }]);
   assert.deepEqual(LS.parseImported({ service: 'spotify', kind: 'track' }, 'basura').tracks, []);
-  assert.equal(LS.parseImported({ service: 'deezer', kind: 'playlist' }, JSON.stringify({ title: 'L', tracks: { data: Array.from({ length: 300 }, (_, i) => ({ title: 't' + i, artist: { name: 'a' } })) } })).tracks.length, LS.IMPORT_MAX);
+  assert.equal(LS.parseImported({ service: 'deezer', kind: 'playlist' }, JSON.stringify({ title: 'L', tracks: { data: Array.from({ length: 700 }, (_, i) => ({ title: 't' + i, artist: { name: 'a' } })) } })).tracks.length, LS.IMPORT_MAX);
 });
 
 test('importar: elegir la canción correcta', () => {
@@ -359,4 +359,33 @@ test('color de la carátula y pulso', () => {
   assert.equal(LS.pulseAt(1.23, 5), LS.pulseAt(1.23, 5));                    // estable por canción
   assert.equal(LS.normalizeSettings({}).reactive, true);
   assert.equal(LS.normalizeSettings({ reactive: false }).reactive, false);
+});
+
+test('importar desde archivo: CSV de Exportify, JSON de Spotify y texto', () => {
+  const csv = 'Track URI,Track Name,Album Name,Artist Name(s),Release Date\n' +
+    'spotify:track:1,"Hola, mundo",A,"Artista Uno;Artista Dos",2020\nspotify:track:2,Segunda,B,Otro,2021\nspotify:track:2,Segunda,B,Otro,2021\n';
+  const r = LS.parseImportFile('Mi lista.csv', csv);
+  assert.equal(r.playlists[0].name, 'Mi lista');
+  assert.deepEqual(r.playlists[0].tracks, [{ title: 'Hola, mundo', artist: 'Artista Uno' }, { title: 'Segunda', artist: 'Otro' }]);
+  const json = JSON.stringify({ playlists: [{ name: 'Rock', items: [{ track: { trackName: 'T1', artistName: 'A1' } }, { track: null }, { track: { trackName: 'T2', artistName: 'A2' } }] }, { name: 'Vacía', items: [] }] });
+  const j = LS.parseImportFile('Playlist1.json', json);
+  assert.equal(j.playlists.length, 1); assert.equal(j.playlists[0].tracks.length, 2);
+  const t = LS.parseImportFile('x.txt', 'Queen - Bohemian Rhapsody\nAC/DC - Back In Black\n');
+  assert.deepEqual(t.playlists[0].tracks[0], { title: 'Bohemian Rhapsody', artist: 'Queen' });
+  assert.ok(LS.parseImportFile('x.txt', 'hola\nadiós').error);
+  assert.ok(LS.parseImportFile('x.json', '{ roto').error);
+  const big = 'Track Name,Artist Name(s)\n' + Array.from({ length: 900 }, (_, i) => `Canción ${i},Artista ${i % 7}`).join('\n');
+  const b = LS.parseImportFile('grande.csv', big);
+  assert.equal(b.playlists[0].tracks.length, 500); assert.equal(b.playlists[0].total, 900); assert.equal(LS.IMPORT_MAX, 500);
+});
+
+test('lista: añadir varias de una vez sin repetir', () => {
+  const mem = {}; const storage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } };
+  const st = LS.createStores(storage);
+  const p = st.playlists.create('X');
+  const mk = (n) => ({ src: 'yt', id: 'id' + n, title: 't' + n, artist: 'a', sub: 'a', duration: 100, thumb: '', kind: 'track', key: 'yt:id' + n });
+  assert.equal(st.playlists.addMany(p.id, [mk(1), mk(2), mk(2)]), 2);
+  assert.equal(st.playlists.addMany(p.id, [mk(2), mk(3)]), 1);
+  assert.equal(st.playlists.find(p.id).items.length, 3);
+  assert.equal(st.playlists.addMany('nope', [mk(9)]), 0);
 });

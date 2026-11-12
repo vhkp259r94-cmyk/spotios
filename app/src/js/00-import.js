@@ -5,7 +5,7 @@ var LS = globalThis.LS = globalThis.LS || {};
 (function (LS) {
   'use strict';
 
-  LS.IMPORT_MAX = 100;
+  LS.IMPORT_MAX = 500;
   LS.IMPORT_HOSTS = ['open.spotify.com', 'api.deezer.com', 'music.apple.com', 'soundcloud.com'];   // además de www.youtube.com
   LS.IMPORT_NOTICE = 'Solo se pueden importar canciones, listas públicas o artistas. No accedemos a tu cuenta ni copiamos contenido: '
     + 'solo leemos los títulos públicos y los buscamos en YouTube. Puede fallar si el servicio cambia su página.';
@@ -135,6 +135,67 @@ var LS = globalThis.LS = globalThis.LS || {};
     r.tracks = (r.tracks || []).filter(valid).filter((t) => { const k = (t.title + '|' + t.artist).toLowerCase(); return !seen.has(k) && seen.add(k); }).slice(0, LS.IMPORT_MAX);
     r.name = clean(r.name).slice(0, 60);
     return r;
+  };
+
+  /** CSV (RFC 4180) → filas. delim: ',' o ';'. */
+  LS.parseCsv = function (text, delim) {
+    const d = delim || ',', rows = []; let row = [], cur = '', q = false;
+    const t = String(text || '').replace(/^﻿/, '');
+    for (let i = 0; i < t.length; i++) {
+      const c = t[i];
+      if (q) { if (c === '"') { if (t[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === d) { row.push(cur); cur = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && t[i + 1] === '\n') i++; row.push(cur); cur = ''; if (row.some((x) => x !== '')) rows.push(row); row = []; }
+      else cur += c;
+    }
+    row.push(cur); if (row.some((x) => x !== '')) rows.push(row);
+    return rows;
+  };
+
+  const firstArtist = (s) => clean(String(s || '').split(/[;|]/)[0]);
+
+  /**
+   * Archivo que el usuario elige (sin cuentas ni contraseñas) → { playlists: [{ name, tracks, total }] } o { error }.
+   * Admite: CSV de Exportify (Spotify), JSON de «Descargar tus datos» de Spotify, JSON genérico y texto «Artista - Título» por línea.
+   */
+  LS.parseImportFile = function (fileName, text) {
+    const raw = String(text || '').replace(/^﻿/, '');
+    const base = clean(String(fileName || '').replace(/\.[A-Za-z0-9]+$/, '')) || 'Lista importada';
+    const finish = (lists) => {
+      const out = lists.map((l) => {
+        const seen = new Set();
+        const all = (l.tracks || []).filter(valid).filter((t) => { const k = (t.title + '|' + t.artist).toLowerCase(); return !seen.has(k) && seen.add(k); });
+        return { name: clean(l.name).slice(0, 60) || base, tracks: all.slice(0, LS.IMPORT_MAX), total: all.length };
+      }).filter((l) => l.tracks.length);
+      return out.length ? { playlists: out } : { error: 'No encontré canciones en ese archivo.' };
+    };
+    if (/^\s*[\[{]/.test(raw)) {
+      let j; try { j = JSON.parse(raw); } catch (e) { return { error: 'El archivo JSON no se puede leer.' }; }
+      const lists = Array.isArray(j.playlists) ? j.playlists : Array.isArray(j) && j[0] && Array.isArray(j[0].items) ? j : null;
+      if (lists) {
+        return finish(lists.map((p) => ({ name: p.name, tracks: (p.items || []).map((it) => it && it.track ? track(it.track.trackName, it.track.artistName) : null).filter(Boolean) })));
+      }
+      const arr = Array.isArray(j) ? j : Array.isArray(j.tracks) ? j.tracks : Array.isArray(j.items) ? j.items : null;
+      if (arr) return finish([{ name: j.name, tracks: arr.map((x) => track(x.title || x.name || x.trackName, x.artist || x.artistName || (x.artists && x.artists[0] && (x.artists[0].name || x.artists[0])))) }]);
+      return { error: 'No reconozco ese JSON. Usa el de «Descargar tus datos» de Spotify.' };
+    }
+    const first = raw.split(/\r?\n/, 1)[0] || '';
+    const delim = first.includes(',') || !first.includes(';') ? ',' : ';';
+    if (first.includes(delim) && /track|title|song|canci|name/i.test(first)) {
+      const rows = LS.parseCsv(raw, delim);
+      const head = rows[0].map((h) => clean(h).toLowerCase());
+      const find = (names) => head.findIndex((h) => names.some((n) => h === n || h.startsWith(n)));
+      const ti = find(['track name', 'trackname', 'title', 'song', 'canción', 'cancion', 'name']);
+      const ai = find(['artist name', 'artistname', 'artist', 'artista', 'artists']);
+      if (ti >= 0) return finish([{ name: base, tracks: rows.slice(1).map((r) => track(r[ti], ai >= 0 ? firstArtist(r[ai]) : '')) }]);
+    }
+    const lines = raw.split(/\r?\n/).map(clean).filter(Boolean);
+    const withDash = lines.filter((l) => / [-–—] /.test(l));
+    if (withDash.length >= Math.max(1, Math.floor(lines.length * 0.6))) {
+      return finish([{ name: base, tracks: withDash.map((l) => { const i = l.search(/ [-–—] /); return track(l.slice(i + 3), l.slice(0, i)); }) }]);
+    }
+    return { error: 'No reconozco el formato. Usa un CSV de Exportify, el JSON de Spotify o un texto con «Artista - Título» por línea.' };
   };
 
   /** Elige la mejor canción de los resultados de YouTube Music para una pista importada, o null si ninguna encaja. */

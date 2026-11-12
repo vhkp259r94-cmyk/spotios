@@ -97,6 +97,16 @@ var LS = globalThis.LS = globalThis.LS || {};
         },
         remove(id) { playlists = playlists.filter((p) => p.id !== id); write(storage, 'playlists', playlists); },
         has: (id, item) => !!(playlists.find((p) => p.id === id) || { items: [] }).items.some((i) => itemKey(i) === itemKey(item)),
+        /** Añade varias de una vez (una sola escritura) sin repetir. Devuelve cuántas añadió. */
+        addMany(id, items) {
+          const p = playlists.find((x) => x.id === id);
+          if (!p) return 0;
+          const have = new Set(p.items.map(itemKey));
+          let n = 0;
+          for (const it of items) { const k = itemKey(it); if (!have.has(k)) { have.add(k); p.items.push(slim(it)); n++; } }
+          if (n) write(storage, 'playlists', playlists);
+          return n;
+        },
         /** Añade o quita de la lista. Devuelve true si queda dentro. */
         toggle(id, item) {
           const p = playlists.find((x) => x.id === id);
