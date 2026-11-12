@@ -55,17 +55,39 @@ Elige **una** de estas formas:
 5. iOS 16 o superior: **Ajustes → Privacidad y seguridad → Modo desarrollador → Activar** (pide reiniciar).
 6. Abre Nsound.
 
-### Opción B: AltStore
-Instala [AltStore](https://altstore.io) en el ordenador y en el iPhone, abre AltStore → **My Apps → +** y elige el `.ipa`.
-Mientras el ordenador esté en la misma wifi, AltStore renueva la firma solo.
+### Opción B: SideStore (se renueva sola, sin ordenador) — la recomendada para no reinstalar cada semana
+SideStore es una tienda de código abierto que firma y **renueva la app en el propio iPhone**.
+1. Instala SideStore siguiendo su guía oficial: <https://docs.sidestore.io> (el primer arranque necesita un ordenador, solo una vez).
+2. En el iPhone, descarga el `.ipa` de Nsound. Ábrelo con **SideStore** (menú Compartir → SideStore) o, dentro de SideStore, **My Apps → +** y elígelo.
+3. SideStore renueva la firma antes de que caduque. Para renovar necesita su VPN local activada (la guía de SideStore explica cuál) y que abras SideStore de vez en cuando.
+4. Con un Apple ID gratuito sigue habiendo el límite de **3 apps** y el de 7 días: la diferencia es que la renovación es automática.
 
-### Opción C: TrollStore
-Solo en versiones de iOS compatibles con TrollStore. Abre el `.ipa` con TrollStore y pulsa **Install**.
-La app queda instalada de forma permanente, sin caducar.
+### Opción C: AltStore (renueva por wifi con el ordenador)
+Instala [AltStore](https://altstore.io) en el ordenador (AltServer) y en el iPhone, abre AltStore → **My Apps → +** y elige el `.ipa`.
+Mientras el ordenador esté encendido y en la misma wifi, AltStore renueva la firma solo.
 
-**Limitaciones de las opciones A y B con Apple ID gratuito:**
-la app **caduca a los 7 días** (hay que volver a firmarla con el mismo procedimiento) y puedes tener como máximo
+### Opción D: TrollStore (permanente, solo en algunos iOS)
+TrollStore instala sin que caduque nunca, pero **solo funciona en ciertas versiones de iOS**: desde la 14.0 hasta la 16.6.1,
+la 16.7 RC (20H18) y la 17.0. En versiones más nuevas no se puede usar; no actualices el iPhone si quieres conservarlo.
+Instálalo con su guía oficial: <https://ios.cfw.guide/installing-trollstore/>. Después, abre el `.ipa` con TrollStore (Compartir → TrollStore) y pulsa **Install**.
+
+### ¿Cuál elijo?
+
+| Opción | ¿Se renueva sola? | Necesita ordenador | Funciona en |
+|---|---|---|---|
+| A. Sideloadly | No (cada 7 días a mano) | Sí, cada vez | iOS 16+ |
+| **B. SideStore** | **Sí, en el iPhone** | Solo para instalar SideStore | iOS 16+ |
+| C. AltStore | Sí, con el ordenador en la misma wifi | Sí, encendido | iOS 16+ |
+| D. TrollStore | No hace falta: no caduca | Solo para instalar TrollStore | iOS 14.0–16.6.1 y 17.0 |
+
+**Tiendas con certificados «empresariales» (ESign, Scarlet…):** no se recomiendan. Apple revoca esos certificados de golpe
+y la app deja de abrirse, y pasas tus datos por terceros que no controlas.
+
+**Limitaciones con Apple ID gratuito (opciones A, B y C):** la firma **caduca a los 7 días** y puedes tener como máximo
 3 apps firmadas así a la vez. Los datos se conservan si reinstalas encima.
+
+> Una «fuente» propia de SideStore/AltStore (para instalar y actualizar Nsound con un solo enlace) necesita un enlace
+> público al `.ipa`. Hoy no hay versión publicada, así que todavía no existe.
 
 ---
 
@@ -74,7 +96,7 @@ la app **caduca a los 7 días** (hay que volver a firmarla con el mismo procedim
 - Las apps móviles se han compilado y probado en un emulador y un simulador, pero **no en un teléfono real**:
   puede haber fallos. Si ves uno, apunta en qué pantalla estabas y qué texto de error aparece.
 - Si YouTube no devuelve resultados, la pantalla muestra el motivo en rojo.
-- El sonido **con la pantalla apagada** puede cortarse: YouTube pausa su reproductor en segundo plano.
+- El sonido **con la pantalla apagada** puede cortarse en el iPhone: YouTube puede pausar su reproductor en segundo plano (la app intenta reanudar). En Android hay una notificación de reproducción que lo mantiene.
 - El **ecualizador** y las **descargas sin conexión** son lo menos probado.
 - YouTube no se descarga: solo se reproduce con su reproductor oficial. Las descargas son del contenido libre
   (Creative Commons).
