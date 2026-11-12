@@ -38,7 +38,9 @@
   </aside>
 
   <div id="videoLayer" class="mini">
-    <button id="closeVideo">← Volver</button>
+    <button id="closeVideo">← Minimizar</button>
+    <div id="pipHit" aria-hidden="true"></div>
+    <div id="pipBar"><button id="pipExpand" aria-label="Ampliar el vídeo" data-ic="expand"></button><button id="pipClose" aria-label="Ocultar el vídeo (sigue el sonido)" data-ic="close"></button></div>
     <div id="yt"></div>
     <video id="html5" playsinline webkit-playsinline controls></video>
   </div>

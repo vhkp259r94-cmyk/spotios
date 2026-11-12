@@ -16,6 +16,7 @@ var LS = globalThis.LS = globalThis.LS || {};
     download: [S, '<path d="M12 4v11m0 0-4-4m4 4 4-4M5 19.5h14"/>'],
     video: [S, '<rect x="3" y="6" width="18" height="12" rx="2.5"/>'],
     chevDown: [S, '<path d="M6 9.5l6 6 6-6"/>'],
+    expand: [S, '<path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/>'],
     close: [S, '<path d="M6 6l12 12M18 6 6 18"/>'],
     up: [S, '<path d="M6 14.5l6-6 6 6"/>'],
     down: [S, '<path d="M6 9.5l6 6 6-6"/>'],

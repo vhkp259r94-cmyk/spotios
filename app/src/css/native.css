@@ -85,3 +85,15 @@ body.fx #nav button.on .ico { transform: translateY(-2px) scale(1.12); color: va
 .hero-nav.l { left: 10px; } .hero-nav.r { right: 10px; }
 .hero:hover .hero-nav { opacity: 1; }
 @media (hover: none) { .hero-nav { display: none; } }
+
+/* Vídeo minimizado: ventanita flotante que sigue sonando mientras navegas */
+#pipBar, #pipHit { display: none; }
+#videoLayer.pip { left: auto; top: auto; right: 12px; bottom: calc(var(--barh) + var(--navh) + 10px); width: min(52vw, 260px); height: calc(min(52vw, 260px) * 9 / 16);
+  border-radius: 14px; overflow: hidden; z-index: 9; border: 1px solid var(--line); box-shadow: 0 16px 40px -8px rgba(0, 0, 0, .75); animation: pipIn .3s cubic-bezier(.2, .8, .2, 1); }
+@keyframes pipIn { from { opacity: 0; transform: translateY(14px) scale(.92); } to { opacity: 1; transform: none; } }
+#videoLayer.pip #closeVideo { display: none; }
+#videoLayer.pip #pipHit { display: block; position: absolute; inset: 0; z-index: 1; cursor: pointer; }
+#videoLayer.pip #pipBar { display: flex; position: absolute; top: 5px; right: 5px; gap: 5px; z-index: 2; }
+#pipBar button { width: 30px; height: 30px; padding: 0; border-radius: 50%; background: rgba(0, 0, 0, .65); color: #fff; display: inline-flex; align-items: center; justify-content: center; }
+#pipBar .ic { width: 15px; height: 15px; }
+@media (min-width: 801px) { #videoLayer.pip { bottom: calc(var(--barh) + 12px); right: 16px; } }

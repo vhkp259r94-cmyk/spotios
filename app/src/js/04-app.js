@@ -173,6 +173,7 @@
   const scopeNow = () => (S.page === 'music' ? 'track' : S.page === 'videos' ? 'video' : S.scope);
 
   function render() {
+    if (videoMode() === 'full' && S.now && !S.audioOnly) setVideoMode('pip');     // navegar minimiza el vídeo en lugar de taparlo todo
     closeOverlays();
     const id = ++S.renderId;
     const v = $('#view');
@@ -445,7 +446,7 @@
     if (!it) return;
     S.now = it; S.time = 0; S.duration = it.duration || 0; S.lyrics = null; S.lyricsFor = ''; S.lyricIndex = -1;
     Player.load(resolveLocal(it), { audioOnly: S.audioOnly });
-    showVideo(!S.audioOnly);
+    if (S.audioOnly) showVideo(false); else setVideoMode(videoMode() === 'pip' ? 'pip' : 'full');
     updateBar();
     if (!$('#lyrics').hidden) loadLyrics();
   }
@@ -454,7 +455,13 @@
   function prev() { if (S.time > 3 || S.index <= 0) Player.seek(0); else { S.index--; start(); } }
 
   // El vídeo no se oculta con display:none (el navegador suspendería la reproducción): se deja vivo y casi invisible.
-  function showVideo(show) { $('#videoLayer').classList.toggle('mini', !show); }
+  // Tres estados: 'full' (a pantalla completa), 'pip' (ventanita flotante mientras navegas) y 'hidden' (solo suena)
+  function setVideoMode(mode) {
+    const l = $('#videoLayer');
+    l.classList.toggle('mini', mode === 'hidden'); l.classList.toggle('pip', mode === 'pip'); l.dataset.mode = mode;
+  }
+  const videoMode = () => $('#videoLayer').dataset.mode || 'hidden';
+  function showVideo(show) { setVideoMode(show ? 'full' : 'hidden'); }
 
 
   // ---------- Pantalla de bloqueo y controles del sistema ----------
@@ -583,6 +590,7 @@
     let closed = false;
     if ($('#np').classList.contains('open')) { closeNp(); closed = true; }
     ['#imp', '#qp', '#qm'].forEach((sel) => { const o = $(sel); if (o && !o.hidden) { o.hidden = true; importing.cancel = true; closed = true; } });
+    if (videoMode() === 'full' && S.now && !S.audioOnly) { setVideoMode('pip'); closed = true; }
     const ly = $('#lyrics'); if (ly && !ly.hidden) { ly.hidden = true; closed = true; }
     const am = $('#addMenu'); if (am && !am.hidden) { am.hidden = true; closed = true; }
     return closed;
@@ -828,8 +836,11 @@
   $('#lyricsBtn').onclick = () => { const l = $('#lyrics'); l.hidden = !l.hidden; if (!l.hidden) { if (S.now) loadLyrics(); else $('#lyricsInfo').textContent = 'Reproduce una canción para ver su letra.'; } };
   $('#lyricsClose').onclick = () => { $('#lyrics').hidden = true; };
   $('#lyricsList').onclick = (e) => { const li = e.target.closest('li'); if (!li || !S.lyrics || !S.lyrics.synced) return; Player.seek(S.lyrics.lines[+li.dataset.i].time); };
-  $('#videoBtn').onclick = () => { if (S.now) showVideo($('#videoLayer').classList.contains('mini')); };
-  $('#closeVideo').onclick = () => showVideo(false);
+  $('#videoBtn').onclick = () => { if (S.now) setVideoMode(videoMode() === 'full' ? 'pip' : 'full'); };
+  $('#closeVideo').onclick = () => setVideoMode(S.audioOnly ? 'hidden' : 'pip');
+  $('#pipHit').onclick = () => setVideoMode('full');
+  $('#pipExpand').onclick = () => setVideoMode('full');
+  $('#pipClose').onclick = () => setVideoMode('hidden');
   $('#dlBtn').onclick = () => { go('#/library/downloads'); if (S.now && S.now.src === 'yt') toast('YouTube no permite descargar sus vídeos. En Descargas solo hay contenido libre (Creative Commons).'); };
 
   const prog = $('#progress');
