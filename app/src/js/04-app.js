@@ -574,14 +574,14 @@
   const rawPause = Player.pause.bind(Player), rawPlay = Player.play.bind(Player);
   Player.pause = () => { S.userPause = true; keepAlive.off(); rawPause(); };
   Player.play = () => { S.userPause = false; keepAlive.on(); rawPlay(); };
-  document.addEventListener('visibilitychange', () => { if (document.hidden) S.hiddenAt = Date.now(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { S.hiddenAt = Date.now(); S.wasPlaying = S.playing; } else S.visibleAt = Date.now(); });
   function autoResume(st) {
     if (st.playing) { if (st.time > 6) S.resumeTries = 0; return; }
     // Solo si la pausa llega justo al bloquear (la hace el sistema). Una pausa más tarde viene de los cascos o del usuario: se respeta
     if (!LS.shouldAutoResume({ playing: st.playing, hidden: document.hidden, userPause: S.userPause, hasNow: !!S.now, tries: S.resumeTries,
-      time: S.time, duration: S.duration, hiddenAt: S.hiddenAt, now: Date.now() })) return;
+      time: S.time, duration: S.duration, hiddenAt: S.hiddenAt, visibleAt: S.visibleAt, wasPlaying: S.wasPlaying, now: Date.now() })) return;
     S.resumeTries = (S.resumeTries || 0) + 1;
-    setTimeout(() => { if (!S.playing && !S.userPause && document.hidden) rawPlay(); }, 500);
+    setTimeout(() => { if (!S.playing && !S.userPause) rawPlay(); }, 500);
   }
 
   Player.on('state', (st) => {
