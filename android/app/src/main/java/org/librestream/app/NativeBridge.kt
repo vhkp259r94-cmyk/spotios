@@ -15,7 +15,8 @@ import java.util.concurrent.Executors
 class NativeBridge(private val activity: MainActivity, private val web: WebView) {
 
     private val io = Executors.newCachedThreadPool()
-    private val fetchHosts = setOf("www.youtube.com", "lrclib.net", "vhkp259r94-cmyk.github.io")
+    private val fetchHosts = setOf("www.youtube.com", "lrclib.net", "vhkp259r94-cmyk.github.io",
+        "open.spotify.com", "api.deezer.com", "music.apple.com", "soundcloud.com")
     private val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
     private val downloadsDir get() = File(activity.filesDir, "downloads").apply { mkdirs() }
 

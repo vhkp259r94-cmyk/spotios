@@ -3,7 +3,7 @@ name: Validate & publish catalog
 on:
   push:
     branches: [main]
-    paths: ["catalog/**", "schemas/**", "tools/**", ".github/workflows/validate-catalog.yml"]
+    paths: ["catalog/**", "schemas/**", "tools/**", "site/**", ".github/workflows/validate-catalog.yml"]
   pull_request:
     paths: ["catalog/**", "schemas/**", "tools/**"]
 
@@ -30,7 +30,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - if: github.event_name == 'push'
-        run: mkdir -p _site/schemas && cp catalog/*.json _site/ && cp schemas/*.json _site/schemas/
+        run: mkdir -p _site/schemas && cp catalog/*.json _site/ && cp schemas/*.json _site/schemas/ && cp -r site/. _site/
       - if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v3
 

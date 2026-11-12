@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const port = Number(process.argv[2]) || 5173;
-const ALLOWED = ['www.youtube.com', 'lrclib.net', 'vhkp259r94-cmyk.github.io'];
+const ALLOWED = ['www.youtube.com', 'lrclib.net', 'vhkp259r94-cmyk.github.io', 'open.spotify.com', 'api.deezer.com', 'music.apple.com', 'soundcloud.com'];
 const POST_ALLOWED = ['music.youtube.com'];
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
 
@@ -36,4 +36,4 @@ createServer(async (req, res) => {
   const file = join(dist, url.pathname === '/' ? 'index.html' : url.pathname.replace(/\.\./g, ''));
   if (!existsSync(file)) { res.writeHead(404).end('no encontrado'); return; }
   res.writeHead(200, { 'Content-Type': file.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8' }).end(readFileSync(file));
-}).listen(port, '127.0.0.1', () => console.log(`LibreStream (web) en http://localhost:${port}`));
+}).listen(port, process.env.LS_HOST || '127.0.0.1', () => console.log(`LibreStream (web) en http://localhost:${port}`));

@@ -265,7 +265,8 @@
     const tabs = [['saved', 'Guardado'], ['downloads', 'Descargas'], ...pls.map((p) => ['pl:' + p.id, p.name])];
     v.innerHTML = `<h1>Mi biblioteca</h1>
       <div class="chips">${tabs.map(([k, l]) => `<button class="chip ${k === S.sub ? 'on' : ''}" data-sub="${esc(k)}">${esc(l)}</button>`).join('')}
-      <button class="chip add" data-act="newlist">+ Nueva lista</button></div><div id="libBody"></div>`;
+      <button class="chip add" data-act="newlist">+ Nueva lista</button>
+      <button class="chip add" data-act="import">⇩ Importar</button></div><div id="libBody"></div>`;
     if (S.sub === 'downloads') return renderDownloads($('#libBody'));
     const q = LS.fold(S.query);
     const pl = S.sub.startsWith('pl:') ? store.playlists.find(S.sub.slice(3)) : null;
@@ -508,6 +509,69 @@
     if (li) { li.classList.add('on'); li.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   }
 
+
+  // ---------- Importar una canción, lista pública o artista ----------
+  const importing = { busy: false, cancel: false };
+  function openImport() {
+    let o = $('#imp');
+    if (!o) { o = document.createElement('div'); o.id = 'imp'; o.className = 'imp'; document.body.appendChild(o); }
+    o.innerHTML = `<div class="imp-box" role="dialog" aria-modal="true" aria-label="Importar lista de reproducción">
+      <h2>Importar lista de reproducción</h2><p class="imp-sub">Importa una canción, una lista pública o un artista.</p>
+      <input id="impUrl" type="url" inputmode="url" autocomplete="off" placeholder="${esc(LS.IMPORT_HINT)}…" aria-label="Enlace">
+      <p class="imp-note">${esc(LS.IMPORT_NOTICE)}</p><div id="impOut" class="imp-out" aria-live="polite"></div>
+      <div class="imp-btns"><button data-act="importclose">Cancelar</button><button id="impGo" class="primary" data-act="importgo">Importar</button></div></div>`;
+    o.hidden = false;
+    setTimeout(() => $('#impUrl') && $('#impUrl').focus(), 50);
+  }
+  function closeImport() { importing.cancel = true; const o = $('#imp'); if (o) o.hidden = true; }
+
+  async function runImport() {
+    if (importing.busy) return;
+    const out = $('#impOut'), btn = $('#impGo');
+    const link = LS.parseImportLink($('#impUrl').value);
+    if (link.error) { out.textContent = link.error; return; }
+    importing.busy = true; importing.cancel = false; btn.disabled = true;
+    try {
+      out.textContent = 'Leyendo el enlace…';
+      let text;
+      try { text = await Native.fetchText(link.fetchUrl); } catch (e) { throw new Error('No se pudo abrir el enlace (¿es público? ¿hay conexión?).'); }
+      const info = LS.parseImported(link, text);
+      let wanted = info.tracks;
+      if (!wanted.length && link.service === 'apple' && link.kind === 'artist' && info.name) wanted = [{ title: '', artist: info.name }];
+      if (!wanted.length) throw new Error('No se encontraron canciones. La lista debe ser pública, y el servicio puede haber cambiado su página.');
+      const found = [], missing = [];
+      let n = 0;
+      const one = async (t) => {
+        try {
+          const res = (await musicSearch((t.artist + ' ' + t.title).trim())).filter((m) => LS.isSong({ title: m.title, duration: m.duration }));
+          const m = LS.pickImportMatch(t, res);
+          if (m) return musicItem(m);
+        } catch (e) { /* esa canción queda como no encontrada */ }
+        return null;
+      };
+      const results = new Array(wanted.length);
+      let next = 0;
+      await Promise.all([0, 1, 2].map(async () => {
+        while (next < wanted.length && !importing.cancel) {
+          const i = next++;
+          results[i] = await one(wanted[i]);
+          out.textContent = `Buscando en YouTube Music… ${++n} de ${wanted.length}`;
+        }
+      }));
+      if (importing.cancel) return;
+      wanted.forEach((t, i) => (results[i] ? found.push(results[i]) : missing.push((t.artist ? t.artist + ' — ' : '') + t.title)));
+      if (!found.length) throw new Error('No se encontró ninguna de las canciones en YouTube Music.');
+      const pl = store.playlists.create(info.name || 'Lista importada');
+      found.forEach((it) => store.playlists.toggle(pl.id, it));
+      out.innerHTML = `<b>${found.length} de ${wanted.length} canciones</b> añadidas a «${esc(pl.name)}».`
+        + (missing.length ? `<details><summary>${missing.length} sin encontrar</summary><ul>${missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul></details>` : '')
+        + `<button class="primary" data-act="importopen" data-id="${esc(pl.id)}">Abrir lista</button>`;
+      btn.hidden = true;
+    } catch (e) {
+      out.textContent = e.message || 'No se pudo importar.';
+    } finally { importing.busy = false; btn.disabled = false; }
+  }
+
   // ---------- Listas ----------
   function newList(addCurrent) {
     const name = prompt('Nombre de la lista');
@@ -539,6 +603,10 @@
       case 'play': play(d.key, d.list); break;
       case 'playall': { const k = lists.get('lib') || []; if (k.length) play(k[0], 'lib'); break; }
       case 'newlist': newList(false); break;
+      case 'import': openImport(); break;
+      case 'importgo': runImport(); break;
+      case 'importclose': closeImport(); break;
+      case 'importopen': { const id = d.id; closeImport(); go('#/library/pl/' + id); break; }
       case 'newlistwith': $('#addMenu').hidden = true; newList(true); break;
       case 'dellist': if (confirm('¿Eliminar esta lista? Las canciones guardadas en Mi biblioteca no se borran.')) { store.playlists.remove(d.id); go('#/library'); } break;
       case 'toggleplist': store.playlists.toggle(d.id, S.now); openAddMenu(); openAddMenu(); break;

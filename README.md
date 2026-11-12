@@ -32,7 +32,26 @@ El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al 
 > Windows sigue siendo nativo (WinUI 3) y comparte `app/src/eq.js`. Las apps móviles se compilan en GitHub Actions;
 > aún no se han probado en un dispositivo real.
 
+> **Licencia:** código visible, no libre de copiar. [PolyForm Noncommercial 1.0.0](LICENSE): puedes usarlo y modificarlo
+> sin fines comerciales, pero no venderlo ni publicar copias comerciales; el nombre y el logo de Nsound son de la marca
+> (ver [NOTICE](NOTICE)). Nsound no está afiliado a YouTube, Spotify, SoundCloud, Deezer ni Apple.
+
 > **Instalar:** pasos para Windows, Android e iPhone en [docs/INSTALAR.md](docs/INSTALAR.md).
+
+## Empieza aquí (si no sabes de informática)
+
+1. **Elige tu sistema:** Windows, Android o iPhone.
+2. **Sigue los pasos** de [docs/INSTALAR.md](docs/INSTALAR.md) (o de la [web del proyecto](https://vhkp259r94-cmyk.github.io/spotios/)).
+3. **Abre Nsound** y busca una canción. Sin cuentas ni pagos.
+4. Si algo falla, mira «Preguntas frecuentes» en la web o abre una incidencia en GitHub.
+
+| Carpeta | Para qué sirve |
+|---|---|
+| `app/` | La interfaz que comparten iPhone y Android |
+| `android/`, `ios/`, `windows/` | Cada app, por sistema |
+| `docs/` | Guías: instalar y modificar |
+| `site/` | La web del proyecto |
+| `branding/` | Logo e iconos |
 
 ## Plan por fases
 

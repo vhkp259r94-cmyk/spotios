@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 require('../src/js/00-core.js');
+require('../src/js/00-import.js');
 require('../src/js/01-stores.js');
 const LS = globalThis.LS;
 
@@ -271,4 +272,42 @@ test('YouTube Music: canciones con artista, álbum, duración y carátula', () =
   assert.equal(body.query, 'queen'); assert.equal(body.params, LS.MUSIC_SONGS_PARAMS); assert.equal(body.context.client.clientName, 'WEB_REMIX');
   assert.equal(LS.genreQuery('Éxitos', 2026), 'éxitos 2026'); assert.equal(LS.genreQuery('Lo-fi', 2026), 'lofi'); assert.equal(LS.genreQuery('Otro', 2026), 'Otro');
   for (const g of LS.GENRES) assert.ok(LS.genreQuery(g, 2026).length > 2, g);
+});
+
+test('importar: enlaces válidos y rechazos claros', () => {
+  const p = LS.parseImportLink;
+  assert.deepEqual([p('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=x').service, p('https://open.spotify.com/intl-es/track/3zOYmiNOuyDL0ClxJcEJ0T').kind], ['spotify', 'track']);
+  assert.equal(p('https://open.spotify.com/artist/06HL4z0CvFAxyc27GXpf02').fetchUrl, 'https://open.spotify.com/embed/artist/06HL4z0CvFAxyc27GXpf02');
+  assert.match(p('https://open.spotify.com/album/abc1234567890').error, /álbumes/);
+  assert.equal(p('https://www.deezer.com/es/playlist/1313621735').fetchUrl, 'https://api.deezer.com/playlist/1313621735');
+  assert.match(p('https://www.deezer.com/es/artist/27').fetchUrl, /\/artist\/27\/top/);
+  assert.equal(p('https://youtu.be/dQw4w9WgXcQ').kind, 'track');
+  assert.equal(p('https://www.youtube.com/playlist?list=PLabcdef123456').kind, 'playlist');
+  assert.match(p('https://www.youtube.com/@canal').error, /canales/);
+  assert.equal(p('https://music.apple.com/es/playlist/x/pl.abc').kind, 'playlist');
+  assert.match(p('https://music.apple.com/es/album/x/123').error, /álbumes/);
+  assert.equal(p('https://soundcloud.com/forss/flickermood').kind, 'track');
+  assert.match(p('https://soundcloud.com/forss/sets/s').error, /SoundCloud/);
+  assert.match(p('hola').error, /enlace/);
+  assert.match(p('https://example.com/x').error, /no compatible/);
+  assert.match(p('javascript:alert(1)').error, /enlace/);
+});
+
+test('importar: lectura de Spotify, Deezer, YouTube y SoundCloud', () => {
+  const sp = '<script id="__NEXT_DATA__" type="application/json">' + JSON.stringify({ props: { pageProps: { state: { data: { entity: { name: 'Mi lista', trackList: [{ title: 'A', subtitle: 'X' }, { title: 'A', subtitle: 'X' }, { title: 'B', subtitle: 'Y' }] } } } } } }) + '</script>';
+  const r = LS.parseImported({ service: 'spotify', kind: 'playlist' }, sp);
+  assert.equal(r.name, 'Mi lista'); assert.deepEqual(r.tracks, [{ title: 'A', artist: 'X' }, { title: 'B', artist: 'Y' }]);
+  const dz = LS.parseImported({ service: 'deezer', kind: 'playlist' }, JSON.stringify({ title: 'L', tracks: { data: [{ title: 'T', artist: { name: 'Z' } }] } }));
+  assert.deepEqual(dz.tracks, [{ title: 'T', artist: 'Z' }]);
+  const yt = 'var ytInitialData = ' + JSON.stringify({ a: { playlistHeaderRenderer: { title: { simpleText: 'PL' } }, b: [{ playlistVideoRenderer: { title: { runs: [{ text: 'Song' }] }, shortBylineText: { runs: [{ text: 'Band - Topic' }] } } }] } }) + ';</script>';
+  assert.deepEqual(LS.parseImported({ service: 'youtube', kind: 'playlist' }, yt), { name: 'PL', tracks: [{ title: 'Song', artist: 'Band' }] });
+  assert.deepEqual(LS.parseImported({ service: 'soundcloud', kind: 'track' }, JSON.stringify({ title: 'Flickermood by Forss', author_name: 'Forss' })).tracks, [{ title: 'Flickermood', artist: 'Forss' }]);
+  assert.deepEqual(LS.parseImported({ service: 'spotify', kind: 'track' }, 'basura').tracks, []);
+  assert.equal(LS.parseImported({ service: 'deezer', kind: 'playlist' }, JSON.stringify({ title: 'L', tracks: { data: Array.from({ length: 300 }, (_, i) => ({ title: 't' + i, artist: { name: 'a' } })) } })).tracks.length, LS.IMPORT_MAX);
+});
+
+test('importar: elegir la canción correcta', () => {
+  const res = [{ title: 'Loser (Live)', channel: 'Otro grupo' }, { title: 'Loser', channel: 'Tame Impala' }];
+  assert.equal(LS.pickImportMatch({ title: 'Loser', artist: 'Tame Impala' }, res), res[1]);
+  assert.equal(LS.pickImportMatch({ title: 'Inexistente', artist: 'Nadie' }, res), null);
 });
