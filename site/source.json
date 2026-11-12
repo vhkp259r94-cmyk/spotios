@@ -1,0 +1,46 @@
+{
+  "name": "Nsound",
+  "identifier": "org.librestream.source",
+  "subtitle": "Reproductor personal de música y vídeo",
+  "description": "Fuente de Nsound (beta). Proyecto personal y sin ánimo de lucro; no está afiliado a YouTube ni a ningún servicio de música.",
+  "iconURL": "https://vhkp259r94-cmyk.github.io/spotios/logo.png",
+  "website": "https://vhkp259r94-cmyk.github.io/spotios/",
+  "tintColor": "ff4d62",
+  "apps": [
+    {
+      "name": "Nsound",
+      "bundleIdentifier": "org.librestream.LibreStream",
+      "developerName": "Nsound",
+      "subtitle": "Música y vídeo sin cuentas ni suscripciones",
+      "localizedDescription": "Busca, guarda tus listas, importa desde otros servicios, mira la letra sincronizada y sigue escuchando con la pantalla apagada. Beta: puede tener fallos.",
+      "iconURL": "https://vhkp259r94-cmyk.github.io/spotios/logo.png",
+      "tintColor": "ff4d62",
+      "screenshotURLs": [
+        "https://vhkp259r94-cmyk.github.io/spotios/img/nsound/inicio.jpg",
+        "https://vhkp259r94-cmyk.github.io/spotios/img/nsound/musica.jpg",
+        "https://vhkp259r94-cmyk.github.io/spotios/img/nsound/reproduciendo.jpg"
+      ],
+      "version": "0.6.0",
+      "versionDate": "2026-11-12",
+      "downloadURL": "https://github.com/vhkp259r94-cmyk/spotios/releases/download/v0.8.0-beta.1/Nsound-0.8.0-beta.1-unsigned.ipa",
+      "size": 1170455,
+      "versions": [
+        {
+          "version": "0.6.0",
+          "buildVersion": "1",
+          "date": "2026-11-12",
+          "localizedDescription": "Beta 1: importar hasta 500 canciones desde archivo, cola, música en segundo plano.",
+          "downloadURL": "https://github.com/vhkp259r94-cmyk/spotios/releases/download/v0.8.0-beta.1/Nsound-0.8.0-beta.1-unsigned.ipa",
+          "size": 1170455,
+          "minOSVersion": "16.0",
+          "sha256": "ffe8d6c05a0932e5a55c481f25e45df01894bcc4cd5e150663d97573f36ed2ce"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {}
+      }
+    }
+  ],
+  "news": []
+}

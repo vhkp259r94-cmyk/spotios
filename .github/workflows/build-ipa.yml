@@ -8,7 +8,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # necesario para publicar la Release
+  contents: write # necesario para publicar la Release y actualizar la fuente
+  actions: write  # para volver a publicar la web con la fuente nueva
 
 concurrency:
   group: build-ipa-${{ github.ref }}
@@ -55,6 +56,19 @@ jobs:
             CODE_SIGNING_ALLOWED=NO | xcpretty || exit ${PIPESTATUS[0]}
         shell: bash
 
+      - name: Versión de la app
+        id: ver
+        shell: bash
+        run: |
+          # v0.8.0-beta.1 → 0.8.0 (número de versión que entiende iOS); la compilación es el nº de ejecución
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            V=$(echo "${GITHUB_REF_NAME#v}" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+            echo "settings=MARKETING_VERSION=$V CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "version=$V" >> "$GITHUB_OUTPUT"; echo "build=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          else
+            echo "settings=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Compilar (Release, sin firmar)
         run: |
           xcodebuild build \
@@ -62,7 +76,7 @@ jobs:
             -configuration Release -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" ${{ steps.ver.outputs.settings }} \
             | xcpretty || exit ${PIPESTATUS[0]}
         shell: bash
 
@@ -98,3 +112,26 @@ jobs:
           generate_release_notes: true
           body: |
             IPA **sin firmar**. Instálala con Sideloadly, AltStore o TrollStore (se firma en tu dispositivo).
+
+      - name: Actualizar la fuente de SideStore / AltStore
+        if: startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true   # si falla (p. ej. rama protegida), la versión ya está publicada
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IPA="${{ steps.pkg.outputs.ipa }}"
+          NAME=$(basename "$IPA")
+          SHA=$(cut -d' ' -f1 "$IPA.sha256")
+          SIZE=$(stat -f%z "$IPA")
+          git fetch origin main
+          git checkout -B main origin/main
+          python3 tools/make_source.py --tag "$GITHUB_REF_NAME" --version "${{ steps.ver.outputs.version }}" \
+            --build "${{ steps.ver.outputs.build }}" --ipa "$NAME" --sha256 "$SHA" --size "$SIZE" \
+            --notes "Nsound $GITHUB_REF_NAME"
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add site/source.json
+          git diff --cached --quiet || git commit -m "web: fuente de SideStore/AltStore para $GITHUB_REF_NAME"
+          git push origin HEAD:main
+          gh workflow run validate-catalog.yml --ref main

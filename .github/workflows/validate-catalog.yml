@@ -1,6 +1,7 @@
 name: Validate & publish catalog
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths: ["catalog/**", "schemas/**", "tools/**", "site/**", ".github/workflows/validate-catalog.yml"]
@@ -29,13 +30,13 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - if: github.event_name == 'push'
+      - if: github.event_name != 'pull_request'
         run: mkdir -p _site/schemas && cp catalog/*.json _site/ && cp schemas/*.json _site/schemas/ && cp -r site/. _site/
-      - if: github.event_name == 'push'
+      - if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
 
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request'
     needs: validate
     runs-on: ubuntu-latest
     environment:
