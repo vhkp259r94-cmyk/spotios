@@ -20,6 +20,7 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
     private let userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
     private weak var webView: WKWebView?
+    private let nowPlaying = NowPlayingBridge()
     private var adList: WKContentRuleList?
     private var adEnabled = true
     private lazy var session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
@@ -123,11 +124,33 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
         case "deleteDownload":
             if let file = payload["file"] as? String { try? FileManager.default.removeItem(at: downloadsDir.appendingPathComponent(safeName(file))) }
             replyHandler("ok", nil)
+        case "nowPlaying":
+            nowPlaying.update(title: payload["title"] as? String ?? "", artist: payload["artist"] as? String ?? "",
+                              album: payload["album"] as? String ?? "", artwork: payload["artwork"] as? String ?? "",
+                              duration: num(payload["duration"]), position: num(payload["position"]), playing: payload["playing"] as? Bool ?? true)
+            replyHandler("ok", nil)
+        case "nowPlayingState":
+            nowPlaying.updateState(position: num(payload["position"]), duration: num(payload["duration"]), playing: payload["playing"] as? Bool ?? false)
+            replyHandler("ok", nil)
         case "setAdBlock":
             setAdBlock(payload["enabled"] as? Bool ?? true)
             replyHandler("ok", nil)
         default:
             replyHandler(nil, "Orden desconocida: \(name)")
+        }
+    }
+
+    private func num(_ value: Any?) -> Double { (value as? NSNumber)?.doubleValue ?? 0 }
+
+    /// Los botones de la pantalla de bloqueo vuelven a la interfaz como eventos nativos.
+    private func sendRemote(_ command: [String: Any]) {
+        var event = command
+        event["type"] = "remote"
+        guard JSONSerialization.isValidJSONObject(event),
+              let data = try? JSONSerialization.data(withJSONObject: event),
+              let json = String(data: data, encoding: .utf8) else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.webView?.evaluateJavaScript("window.__nativeEvent && window.__nativeEvent(\(json))")
         }
     }
 

@@ -436,8 +436,55 @@
   // El vídeo no se oculta con display:none (el navegador suspendería la reproducción): se deja vivo y casi invisible.
   function showVideo(show) { $('#videoLayer').classList.toggle('mini', !show); }
 
+
+  // ---------- Pantalla de bloqueo y controles del sistema ----------
+  const msOk = typeof navigator !== 'undefined' && 'mediaSession' in navigator && typeof MediaMetadata !== 'undefined';
+  let msPos = 0;
+  function mediaSessionSet(it) {
+    const m = LS.mediaMeta(it);
+    if (msOk) {
+      try { navigator.mediaSession.metadata = new MediaMetadata(m); } catch (e) { /* formato no admitido */ }
+    }
+    if (Native.platform === 'ios') Native.call('nowPlaying', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: it.duration || 0, position: 0, playing: true }).catch(() => {});
+  }
+  function mediaSessionTick(st) {
+    if (msOk) {
+      try {
+        navigator.mediaSession.playbackState = st.playing ? 'playing' : 'paused';
+        const now = Date.now();
+        if (now - msPos > 1000) {
+          msPos = now;
+          const pos = LS.mediaPosition(st.time, st.duration > 0 ? st.duration : S.duration);
+          if (pos) navigator.mediaSession.setPositionState(pos);
+        }
+      } catch (e) { /* sin soporte */ }
+    }
+    if (Native.platform === 'ios' && Date.now() - msPos > 900) {
+      msPos = Date.now();
+      Native.call('nowPlayingState', { position: st.time || 0, duration: st.duration > 0 ? st.duration : S.duration, playing: !!st.playing }).catch(() => {});
+    }
+  }
+  if (msOk) {
+    const set = (a, fn) => { try { navigator.mediaSession.setActionHandler(a, fn); } catch (e) { /* acción no admitida */ } };
+    set('play', () => Player.play());
+    set('pause', () => Player.pause());
+    set('previoustrack', () => prev());
+    set('nexttrack', () => next());
+    set('seekto', (d) => { if (d && typeof d.seekTime === 'number') Player.seek(d.seekTime); });
+    set('seekbackward', null);          // sin «−10 s»: en la pantalla de bloqueo salen anterior y siguiente
+    set('seekforward', null);
+  }
+  // Los botones de la pantalla de bloqueo del iPhone llegan como eventos nativos
+  Native.onEvent((e) => {
+    if (!e || e.type !== 'remote') return;
+    if (e.cmd === 'play') Player.play(); else if (e.cmd === 'pause') Player.pause();
+    else if (e.cmd === 'next') next(); else if (e.cmd === 'prev') prev();
+    else if (e.cmd === 'seek' && typeof e.position === 'number') Player.seek(e.position);
+  });
+
   Player.on('state', (st) => {
     S.playing = st.playing; S.time = st.time; if (st.duration > 0) S.duration = st.duration;
+    mediaSessionTick(st);
     if (st.playing && st.time > 1) S.skips = 0;       // ya suena: se acaba la racha de errores
     LS.setIcon($('#play'), st.playing ? 'pause' : 'play');
     $('#elapsed').textContent = LS.formatTime(S.time);
@@ -464,6 +511,7 @@
     document.body.classList.add('has-track');
     artHue(it.thumb, it.id, (h) => document.body.style.setProperty('--h', h));
     recentPush(it);
+    mediaSessionSet(it);
     $$('.card.cur').forEach((c) => c.classList.remove('cur'));
     $$('.card[data-key]').forEach((c) => { if (c.dataset.key === it.key) c.classList.add('cur'); });
     updateNp();

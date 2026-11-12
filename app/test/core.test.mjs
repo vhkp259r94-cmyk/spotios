@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url);
 require('../src/js/00-core.js');
 require('../src/js/00-import.js');
 require('../src/js/00-queue.js');
+require('../src/js/00-media.js');
 require('../src/js/01-stores.js');
 const LS = globalThis.LS;
 
@@ -329,4 +330,17 @@ test('cola: añadir, quitar, mover y vaciar', () => {
   assert.deepEqual(LS.queueMove(q, 0, 2, -1).queue.map((x) => x.key), ['k1', 'k3', 'k2']);
   assert.deepEqual(LS.queueMove(q, 0, 1, -1).queue.map((x) => x.key), ['k1', 'k2', 'k3']);        // no pasa por encima de la actual
   assert.deepEqual(LS.queueClearUpcoming(q, 1).queue.map((x) => x.key), ['k1', 'k2']);
+});
+
+test('pantalla de bloqueo: artista, álbum y carátula limpios', () => {
+  const m = LS.mediaMeta({ src: 'yt', title: 'Q Hubo Amor', artist: 'Ovy On The Drums', sub: 'Ovy On The Drums · Q Hubo Amor (Medellín)', thumb: 'https://lh3.googleusercontent.com/x=w544-h544' });
+  assert.deepEqual([m.title, m.artist, m.album, m.artwork[0].sizes], ['Q Hubo Amor', 'Ovy On The Drums', 'Q Hubo Amor (Medellín)', '544x544']);
+  const v = LS.mediaMeta({ src: 'yt', title: 'Video', artist: 'Canal - Topic', sub: 'Canal - Topic', thumb: 'https://i.ytimg.com/vi/abc/mqdefault.jpg' });
+  assert.deepEqual([v.artist, v.album, v.artwork[0].sizes], ['Canal', '', '320x180']);
+  assert.deepEqual(LS.mediaMeta({ title: 'x', thumb: 'http://inseguro/x.jpg' }).artwork, []);
+  assert.equal(LS.mediaMeta(null).title, '');
+  assert.deepEqual(LS.mediaPosition(5, 100), { duration: 100, position: 5, playbackRate: 1 });
+  assert.equal(LS.mediaPosition(5, 0), null);
+  assert.equal(LS.mediaPosition(500, 100).position, 100);
+  assert.equal(LS.mediaPosition(NaN, 100), null);
 });
