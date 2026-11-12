@@ -602,8 +602,26 @@
     followLyrics();
   });
   Player.on('ended', next);
-  Player.on('error', (e) => {
-    const t = S.now ? S.now.title : '';
+  // Si un vídeo no deja reproducirse fuera de youtube.com (muy habitual en los oficiales de artistas grandes), se busca otra
+  // versión de la misma canción en YouTube Music (suelen dejar) y se usa en su lugar. Un solo intento por canción.
+  const altTried = new Set();
+  async function tryAlternative(it) {
+    if (!it || it.src !== 'yt' || altTried.has(it.id)) return false;
+    altTried.add(it.id);
+    try {
+      const clean = (x) => String(x || '').replace(/[(\[][^)\]]*[)\]]/g, ' ').replace(/\s+/g, ' ').trim();
+      const res = (await musicSearch((clean(it.title) + ' ' + clean(it.artist || it.sub)).trim()))
+        .filter((m) => m.id !== it.id && !altTried.has(m.id) && LS.isSong({ title: m.title, duration: m.duration }));
+      if (!res.length || S.queue[S.index] !== it) return false;
+      S.queue[S.index] = musicItem(res[0]);
+      start();
+      return true;
+    } catch (e) { return false; }
+  }
+
+  Player.on('error', async (e) => {
+    const cur = S.now, t = cur ? cur.title : '';
+    if ((e.code === 101 || e.code === 150 || e.code === 100 || e.code === 5) && await tryAlternative(cur)) return;
     toast(e.code === 101 || e.code === 150 ? `«${t}» no permite reproducirse fuera de youtube.com (lo decide quien lo subió).` : `No se pudo reproducir «${t}» (${e.message || 'error ' + e.code}).`);
     showVideo(false);
     S.skips++;
