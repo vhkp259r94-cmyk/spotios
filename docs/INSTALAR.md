@@ -4,7 +4,7 @@ Nsound es gratuita y no tiene cuentas ni suscripciones. Los paquetes no están f
 (Microsoft Store, Google Play, App Store), así que cada sistema te pedirá una confirmación al instalar.
 Es normal: no significa que haya nada raro, sino que la app no pasa por una tienda.
 
-**Dónde conseguirlos:** en la [beta 5 (Releases)](https://github.com/vhkp259r94-cmyk/spotios/releases/tag/v0.8.0-beta.5) o en la pestaña *Actions* → ejecución de «Build Android APK» / «Build unsigned IPA» / «Build Windows app»
+**Dónde conseguirlos:** en la [beta 4 (Releases)](https://github.com/vhkp259r94-cmyk/spotios/releases/tag/v0.8.0-beta.4) o en la pestaña *Actions* → ejecución de «Build Android APK» / «Build unsigned IPA» / «Build Windows app»
 → *Artifacts* (hace falta sesión iniciada en GitHub).
 
 **Comprobar que el archivo no está alterado (opcional):** cada paquete trae un `.sha256`.
