@@ -78,6 +78,14 @@ var LS = globalThis.LS = globalThis.LS || {};
       library: {
         items: () => library,
         has: (item) => library.some((i) => itemKey(i) === itemKey(item)),
+        /** Añade varias de una vez (sin repetir). Devuelve cuántas añadió. */
+        addMany(items) {
+          const have = new Set(library.map(itemKey));
+          const add = [];
+          for (const it of items) { const k = itemKey(it); if (!have.has(k)) { have.add(k); add.push(slim(it)); } }
+          if (add.length) { library = [...add, ...library]; write(storage, 'library', library); }
+          return add.length;
+        },
         /** Guarda o quita. Devuelve true si queda guardado. */
         toggle(item) {
           const k = itemKey(item), had = library.some((i) => itemKey(i) === k);

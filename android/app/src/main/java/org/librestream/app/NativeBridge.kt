@@ -38,6 +38,10 @@ class NativeBridge(private val activity: MainActivity, private val web: WebView)
                         if (!p.isNull("file")) File(downloadsDir, safeName(p.getString("file"))).delete()
                         resolve(id, true, "\"ok\"")
                     }
+                    "saveText" -> {
+                        activity.saveText(p.optString("name", "nsound.json"), p.optString("text"))
+                        resolve(id, true, "\"ok\"")
+                    }
                     "nowPlaying" -> {
                         PlaybackService.update(activity, p.optString("title"), p.optString("artist"), p.optString("album"), p.optString("artwork"),
                             p.optDouble("duration", 0.0), p.optDouble("position", 0.0), p.optBoolean("playing", true))

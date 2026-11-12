@@ -128,6 +128,10 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
         case "deleteDownload":
             if let file = payload["file"] as? String { try? FileManager.default.removeItem(at: downloadsDir.appendingPathComponent(safeName(file))) }
             replyHandler("ok", nil)
+        case "saveText":
+            guard let text = payload["text"] as? String else { replyHandler(nil, "Falta el texto"); return }
+            saveText(text, name: safeName(payload["name"] as? String ?? "nsound.json"))
+            replyHandler("ok", nil)
         case "nowPlaying":
             nowPlaying.update(title: payload["title"] as? String ?? "", artist: payload["artist"] as? String ?? "",
                               album: payload["album"] as? String ?? "", artwork: payload["artwork"] as? String ?? "",
@@ -163,6 +167,21 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
         audioObservers.append(nc.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { _ in
             try? AVAudioSession.sharedInstance().setActive(true)
         })
+    }
+
+    /// Guarda un texto (copia de la biblioteca) con la hoja de compartir del sistema: «Guardar en Archivos», AirDrop, etc.
+    private func saveText(_ text: String, name: String) {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        do { try text.write(to: url, atomically: true, encoding: .utf8) } catch { return }
+        DispatchQueue.main.async {
+            guard let root = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first?.rootViewController else { return }
+            var top = root
+            while let presented = top.presentedViewController { top = presented }
+            let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            sheet.popoverPresentationController?.sourceView = top.view
+            sheet.popoverPresentationController?.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.midY, width: 1, height: 1)
+            top.present(sheet, animated: true)
+        }
     }
 
     private func num(_ value: Any?) -> Double { (value as? NSNumber)?.doubleValue ?? 0 }

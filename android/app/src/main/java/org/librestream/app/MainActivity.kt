@@ -30,6 +30,7 @@ class MainActivity : Activity() {
     private var customView: View? = null
     private var customCallback: WebChromeClient.CustomViewCallback? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingSave: String? = null
 
     /** Interruptor de anuncios (lo cambia la interfaz desde Ajustes). Se lee en el hilo de red del WebView. */
     @Volatile
@@ -146,8 +147,33 @@ class MainActivity : Activity() {
         }
     }
 
+    /** Guarda un texto (copia de la biblioteca) donde elija el usuario con el selector del sistema. */
+    fun saveText(name: String, text: String) {
+        runOnUiThread {
+            pendingSave = text
+            val i = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "application/json"
+                putExtra(Intent.EXTRA_TITLE, name)
+            }
+            try {
+                @Suppress("DEPRECATION")
+                startActivityForResult(i, SAVE_REQUEST)
+            } catch (e: Exception) { pendingSave = null }
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == SAVE_REQUEST) {
+            val uri = data?.data
+            val text = pendingSave
+            pendingSave = null
+            if (resultCode == RESULT_OK && uri != null && text != null) {
+                try { contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray(Charsets.UTF_8)) } } catch (_: Exception) { /* sin permiso o cancelado */ }
+            }
+            return
+        }
         if (requestCode == FILE_REQUEST) {
             fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data))
             fileCallback = null
@@ -168,5 +194,6 @@ class MainActivity : Activity() {
         const val ASSET_HOST = "appassets.androidplatform.net"
         private const val BACKGROUND = 0xFF121214.toInt()
         private const val FILE_REQUEST = 4021
+        private const val SAVE_REQUEST = 4022
     }
 }

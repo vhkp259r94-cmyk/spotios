@@ -198,6 +198,38 @@ var LS = globalThis.LS = globalThis.LS || {};
     return { error: 'No reconozco el formato. Usa un CSV de Exportify, el JSON de Spotify o un texto con «Artista - Título» por línea.' };
   };
 
+  // ---------- Copia de la biblioteca (exportar / restaurar) ----------
+  const itemOk = (x) => x && typeof x === 'object' && (x.src === 'yt' || x.src === 'cat') && typeof x.id === 'string' && /^[\w.\-:]{1,80}$/.test(x.id) && typeof x.title === 'string' && x.title.trim() !== '';
+  const itemClean = (x) => ({
+    src: x.src, id: x.id, title: clean(x.title).slice(0, 200), sub: clean(x.sub).slice(0, 200),
+    duration: Number.isFinite(Number(x.duration)) ? Math.max(0, Math.min(86400, Number(x.duration))) : 0,
+    thumb: /^https:\/\//.test(x.thumb || '') ? String(x.thumb).slice(0, 400) : '', artist: clean(x.artist).slice(0, 120),
+    url: x.src === 'cat' && /^https:\/\//.test(x.url || '') ? String(x.url).slice(0, 500) : '',
+    kind: x.kind === 'track' || x.kind === 'video' ? x.kind : '', published: x.published ? clean(x.published).slice(0, 60) : null,
+  });
+
+  /** Biblioteca y listas → objeto listo para guardar como archivo (sin datos personales, solo lo que has guardado). */
+  LS.buildBackup = function (library, playlists, when) {
+    return {
+      nsound: 1, kind: 'biblioteca', exportedAt: (when || new Date()).toISOString(),
+      library: (library || []).filter(itemOk).map(itemClean),
+      playlists: (playlists || []).map((p) => ({ name: clean(p.name).slice(0, 60) || 'Lista', items: (p.items || []).filter(itemOk).map(itemClean) })),
+    };
+  };
+  LS.backupFileName = (when) => 'nsound-biblioteca-' + (when || new Date()).toISOString().slice(0, 10) + '.json';
+
+  /** Texto de un archivo → { library, playlists } limpio, o null si no es una copia de Nsound. */
+  LS.parseBackup = function (text) {
+    let j;
+    try { j = JSON.parse(String(text || '').replace(/^﻿/, '')); } catch (e) { return null; }
+    if (!j || typeof j !== 'object' || j.nsound !== 1 || !Array.isArray(j.library) || !Array.isArray(j.playlists)) return null;
+    return {
+      library: j.library.filter(itemOk).slice(0, 5000).map(itemClean),
+      playlists: j.playlists.slice(0, 200).filter((p) => p && Array.isArray(p.items))
+        .map((p) => ({ name: clean(p.name).slice(0, 60) || 'Lista', items: p.items.filter(itemOk).slice(0, 2000).map(itemClean) })),
+    };
+  };
+
   /** Elige la mejor canción de los resultados de YouTube Music para una pista importada, o null si ninguna encaja. */
   LS.pickImportMatch = function (wanted, results) {
     const norm = (s) => clean(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();

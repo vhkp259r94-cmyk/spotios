@@ -330,7 +330,8 @@
     v.innerHTML = `<h1>Mi biblioteca</h1>
       <div class="chips">${tabs.map(([k, l]) => `<button class="chip ${k === S.sub ? 'on' : ''}" data-sub="${esc(k)}">${esc(l)}</button>`).join('')}
       <button class="chip add" data-act="newlist">+ Nueva lista</button>
-      <button class="chip add" data-act="import">${LS.icon('import')} Importar</button></div><div id="libBody"></div>`;
+      <button class="chip add" data-act="import">${LS.icon('import')} Importar</button>
+      <button class="chip add" data-act="export">${LS.icon('download')} Exportar</button></div><div id="libBody"></div>`;
     if (S.sub === 'downloads') return renderDownloads($('#libBody'));
     const q = LS.fold(S.query);
     const pl = S.sub.startsWith('pl:') ? store.playlists.find(S.sub.slice(3)) : null;
@@ -748,12 +749,43 @@
   }
   function closeImport() { importing.cancel = true; const o = $('#imp'); if (o) o.hidden = true; }
 
+  // ---------- Copia de la biblioteca ----------
+  function exportLibrary() {
+    const data = LS.buildBackup(store.library.items(), store.playlists.all());
+    const n = data.library.length, m = data.playlists.length;
+    if (!n && !m) { toast('Aún no hay nada que exportar: guarda canciones o crea listas.'); return; }
+    const name = LS.backupFileName(), text = JSON.stringify(data);
+    if (Native.platform === 'web') {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast(`Biblioteca exportada: ${n} guardadas y ${m} listas.`);
+    } else {
+      Native.call('saveText', { name, text }).then(() => toast(`Elige dónde guardar el archivo (${n} guardadas, ${m} listas).`)).catch(() => toast('No se pudo guardar el archivo.'));
+    }
+  }
+  function restoreBackup(b) {
+    const out = $('#impOut');
+    let lib = store.library.addMany(b.library), lists = 0, songs = 0;
+    for (const p of b.playlists) {
+      const have = store.playlists.all().find((x) => x.name === p.name);
+      const pl = have || store.playlists.create(p.name);
+      if (!have) lists++;
+      songs += store.playlists.addMany(pl.id, p.items);
+    }
+    out.innerHTML = `<b>Copia restaurada.</b> Se añadieron ${lib} canciones guardadas, ${lists} listas nuevas y ${songs} canciones en listas. No se borró nada de lo que ya tenías.`
+      + `<button class="primary" data-act="importopen" data-id="">Ver biblioteca</button>`;
+    $('#impGo').hidden = true;
+  }
+
   async function readImportFile(e) {
     const f = e.target.files && e.target.files[0], out = $('#impOut');
     if (!f || importing.busy) return;
     if (f.size > 6 * 1024 * 1024) { out.textContent = 'El archivo es demasiado grande (máximo 6 MB).'; return; }
     let text;
     try { text = await f.text(); } catch (err) { out.textContent = 'No pude leer el archivo.'; return; }
+    const backup = LS.parseBackup(text);
+    if (backup) { restoreBackup(backup); return; }
     const r = LS.parseImportFile(f.name, text);
     if (r.error) { out.textContent = r.error; return; }
     importing.files = r.playlists;
@@ -958,12 +990,13 @@
       case 'qdel': applyQueue(LS.queueRemove(S.queue, S.index, Number(d.i))); renderQueue(); break;
       case 'qclear': applyQueue(LS.queueClearUpcoming(S.queue, S.index)); renderQueue(); break;
       case 'import': openImport(); break;
+      case 'export': exportLibrary(); break;
       case 'importgo': runImport(); break;
       case 'importpick': startFromFile(Number(d.i)); break;
       case 'importresume': { const pe = pendingGet(); if (pe) importTracks(pe); break; }
       case 'importdrop': pendingSet(null); openImport(); break;
       case 'importclose': closeImport(); break;
-      case 'importopen': { const id = d.id; closeImport(); go('#/library/pl/' + id); break; }
+      case 'importopen': { const id = d.id; closeImport(); go(id ? '#/library/pl/' + id : '#/library'); break; }
       case 'newlistwith': $('#addMenu').hidden = true; newList(true); break;
       case 'dellist': if (confirm('¿Eliminar esta lista? Las canciones guardadas en Mi biblioteca no se borran.')) { store.playlists.remove(d.id); go('#/library'); } break;
       case 'toggleplist': store.playlists.toggle(d.id, S.now); openAddMenu(); openAddMenu(); break;

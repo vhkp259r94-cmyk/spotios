@@ -389,3 +389,19 @@ test('lista: añadir varias de una vez sin repetir', () => {
   assert.equal(st.playlists.find(p.id).items.length, 3);
   assert.equal(st.playlists.addMany('nope', [mk(9)]), 0);
 });
+
+test('copia de la biblioteca: exportar, restaurar y limpiar', () => {
+  const it = (n, extra) => Object.assign({ src: 'yt', id: 'id' + n, title: 'Tema ' + n, sub: 'A · B', duration: 120, thumb: 'https://i.ytimg.com/x.jpg', artist: 'A', kind: 'track' }, extra);
+  const b = LS.buildBackup([it(1), it(2), { src: 'xx', id: 'malo', title: 't' }], [{ name: 'Mi lista', items: [it(3)] }], new Date('2026-11-12T10:00:00Z'));
+  assert.equal(b.library.length, 2); assert.equal(b.playlists[0].items.length, 1); assert.equal(b.nsound, 1);
+  assert.equal(LS.backupFileName(new Date('2026-11-12T10:00:00Z')), 'nsound-biblioteca-2026-11-12.json');
+  const back = LS.parseBackup(JSON.stringify(b));
+  assert.deepEqual([back.library.length, back.playlists.length, back.playlists[0].name, back.playlists[0].items[0].id], [2, 1, 'Mi lista', 'id3']);
+  assert.equal(LS.parseBackup('{ roto'), null);
+  assert.equal(LS.parseBackup(JSON.stringify({ playlists: [] })), null);                    // no es una copia de Nsound
+  const sucio = LS.parseBackup(JSON.stringify({ nsound: 1, library: [it(9, { thumb: 'javascript:alert(1)', url: 'http://x', title: '  X  ' }), it(10, { id: '../../etc' })], playlists: [] }));
+  assert.equal(sucio.library.length, 1); assert.equal(sucio.library[0].thumb, ''); assert.equal(sucio.library[0].url, ''); assert.equal(sucio.library[0].title, 'X');
+  // añadir a la biblioteca de golpe, sin repetir
+  const mem = {}; const st = LS.createStores({ getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } });
+  assert.equal(st.library.addMany([it(1), it(2), it(2)]), 2); assert.equal(st.library.addMany([it(2), it(3)]), 1); assert.equal(st.library.items().length, 3);
+});
