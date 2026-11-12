@@ -99,6 +99,13 @@ h2::before { content: ''; display: inline-block; width: 5px; height: .9em; borde
 /* Capturas */
 .shots { display: flex; gap: 22px; overflow-x: auto; padding: 10px 6px 26px; scroll-snap-type: x mandatory; justify-content: safe center; scrollbar-width: thin; }
 .shots figure { margin: 0; flex: 0 0 auto; scroll-snap-align: center; text-align: center; }
+.phone img { transition: opacity .22s ease; } .phone img.swap { opacity: 0; }
+.winshot { margin: 34px auto 0; max-width: 860px; text-align: center; }
+.winframe { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: #000; box-shadow: 0 40px 80px -40px color-mix(in srgb, var(--ac) 60%, #000); }
+.wbar { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; background: rgba(var(--w), .06); border-bottom: 1px solid var(--line); font-size: 12px; color: var(--mut); }
+.wbar i { width: 9px; height: 9px; border-radius: 50%; background: rgba(var(--w), .22); } .wbar span { margin-left: 6px; }
+.winframe img { width: 100%; display: block; transition: opacity .22s ease; } .winframe img.swap { opacity: 0; }
+.winshot figcaption { color: var(--mut); font-size: .92rem; margin-top: 14px; }
 .shots .phone { position: static; width: 220px; animation: none; transform: none; transition: transform .4s cubic-bezier(.2,.8,.2,1); }
 .shots figure:hover .phone { transform: translateY(-8px) rotate(-1.5deg); }
 .shots figcaption { color: var(--mut); font-size: .92rem; margin-top: 14px; }
@@ -180,8 +187,8 @@ footer .brand { justify-content: center; margin-bottom: 10px; }
       <div class="plats"><span>Windows</span><span>Android</span><span>iPhone</span><span>Gratis</span></div>
     </div>
     <div class="stage rv" style="--d:.15s" aria-hidden="true">
-      <div class="phone a"><img src="img/inicio.jpg" alt=""></div>
-      <div class="phone b"><img src="img/reproduciendo.jpg" alt=""></div>
+      <div class="phone a"><img data-shot="inicio" src="img/nsound/inicio.jpg" alt=""></div>
+      <div class="phone b"><img data-shot="reproduciendo" src="img/nsound/reproduciendo.jpg" alt=""></div>
     </div>
   </div>
 
@@ -214,10 +221,11 @@ footer .brand { justify-content: center; margin-bottom: 10px; }
     <p class="sub rv">Cambia el estilo de esta página: usa los mismos colores que la app.</p>
     <div class="themes rv" id="themes" role="group" aria-label="Estilos"></div>
     <div class="shots" style="margin-top:26px">
-      <figure class="rv"><div class="phone"><img src="img/inicio.jpg" alt="Pantalla de inicio con las novedades" loading="lazy"></div><figcaption>Inicio y novedades</figcaption></figure>
-      <figure class="rv" style="--d:.08s"><div class="phone"><img src="img/musica.jpg" alt="Pantalla de música por géneros" loading="lazy"></div><figcaption>Música por géneros</figcaption></figure>
-      <figure class="rv" style="--d:.16s"><div class="phone"><img src="img/reproduciendo.jpg" alt="Pantalla Reproduciendo con el color de la carátula" loading="lazy"></div><figcaption>Reproduciendo</figcaption></figure>
+      <figure class="rv"><div class="phone"><img data-shot="inicio" src="img/nsound/inicio.jpg" alt="Pantalla de inicio con las novedades" loading="lazy"></div><figcaption>Inicio y novedades</figcaption></figure>
+      <figure class="rv" style="--d:.08s"><div class="phone"><img data-shot="musica" src="img/nsound/musica.jpg" alt="Pantalla de música por géneros" loading="lazy"></div><figcaption>Música por géneros</figcaption></figure>
+      <figure class="rv" style="--d:.16s"><div class="phone"><img data-shot="reproduciendo" src="img/nsound/reproduciendo.jpg" alt="Pantalla Reproduciendo con el color de la carátula" loading="lazy"></div><figcaption>Reproduciendo</figcaption></figure>
     </div>
+    <figure class="winshot rv"><div class="winframe"><div class="wbar"><i></i><i></i><i></i><span>Nsound</span></div><img data-win src="img/windows/nsound.jpg" alt="Nsound en Windows" loading="lazy"></div><figcaption>Nsound en Windows: mismos estilos, mismas funciones</figcaption></figure>
   </section>
 
   <section id="instalar">
@@ -302,6 +310,11 @@ footer .brand { justify-content: center; margin-bottom: 10px; }
     var m = $('meta[name=theme-color]'); if (m) m.setAttribute('content', l[3]);
     $$('[data-th]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.th === id); });
     try { localStorage.setItem('nsound-site-theme', id); } catch (e) {}
+    $$('img[data-shot],img[data-win]').forEach(function (im) {
+      var src = im.hasAttribute('data-win') ? 'img/windows/' + id + '.jpg' : 'img/' + id + '/' + im.dataset.shot + '.jpg';
+      if (im.getAttribute('src') === src) return;
+      var pre = new Image(); pre.onload = function () { im.classList.add('swap'); setTimeout(function () { im.src = src; im.classList.remove('swap'); }, 200); }; pre.src = src;
+    });
   }
   LOOKS.forEach(function (l) {
     var d = document.createElement('button'); d.dataset.th = l[0]; d.title = l[1]; d.setAttribute('aria-label', 'Estilo ' + l[1]); d.style.background = 'linear-gradient(135deg,' + l[2] + ' 50%,' + l[3] + ' 50%)';

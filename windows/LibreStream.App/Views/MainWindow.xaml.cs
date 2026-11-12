@@ -1223,7 +1223,18 @@ public sealed partial class MainWindow : Window
     {
         var t = _palette = Themes.Find(id);
         var classic = t.Id == "clasico";
-        Root.RequestedTheme = t.Dark ? ElementTheme.Dark : ElementTheme.Light;
+        // Los botones de acento de Fluent toman su color de SystemAccentColor*: se cambian y se fuerza a releer el tema
+        var res = Application.Current.Resources;
+        res["SystemAccentColor"] = Hex(t.Accent);
+        res["SystemAccentColorLight1"] = Hex(t.Accent);
+        res["SystemAccentColorLight2"] = Hex(t.Accent);
+        res["SystemAccentColorLight3"] = Hex(t.Accent);
+        res["SystemAccentColorDark1"] = Hex(t.Accent2);
+        res["SystemAccentColorDark2"] = Hex(t.Accent2);
+        res["SystemAccentColorDark3"] = Hex(t.Accent2);
+        var wanted = t.Dark ? ElementTheme.Dark : ElementTheme.Light;
+        Root.RequestedTheme = wanted == ElementTheme.Dark ? ElementTheme.Light : ElementTheme.Dark;
+        Root.RequestedTheme = wanted;
         SetBrush("AccentFillColorDefaultBrush", Hex(t.Accent));
         SetBrush("AccentFillColorSecondaryBrush", Hex(t.Accent, 0xE6));
         SetBrush("AccentFillColorTertiaryBrush", Hex(t.Accent, 0xCC));
