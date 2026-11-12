@@ -439,6 +439,7 @@
     const it = S.queue[S.index];
     if (!it) return;
     S.userPause = false; S.resumeTries = 0;
+    keepAlive.on();
     S.now = it; S.time = 0; S.duration = it.duration || 0; S.lyrics = null; S.lyricsFor = ''; S.lyricIndex = -1;
     Player.load(resolveLocal(it), { audioOnly: S.audioOnly });
     if (S.audioOnly) showVideo(false); else setVideoMode(videoMode() === 'pip' ? 'pip' : 'full');
@@ -543,10 +544,31 @@
   function reactiveKick() { if (!fxr.raf && reactiveWanted()) fxr.raf = requestAnimationFrame(reactiveTick); }
   document.addEventListener('visibilitychange', reactiveKick);
 
+  // Web (Safari / Chrome del móvil): un audio silencioso en bucle mantiene viva la sesión de audio de la página con la pantalla
+  // bloqueada. Así el sistema sigue ejecutando la página (para reanudar si YouTube se pausa) y muestra NUESTROS datos y botones
+  // en la pantalla de bloqueo. Solo en la web: las apps ya tienen su propio arreglo.
+  const keepAlive = (() => {
+    if (Native.platform !== 'web' || typeof Audio === 'undefined' || typeof Blob === 'undefined') return { on() {}, off() {} };
+    let a = null;
+    const make = () => {
+      const n = 8000, buf = new Uint8Array(44 + n).fill(128), dv = new DataView(buf.buffer);
+      const str = (o, t) => { for (let i = 0; i < t.length; i++) buf[o + i] = t.charCodeAt(i); };
+      str(0, 'RIFF'); dv.setUint32(4, 36 + n, true); str(8, 'WAVE'); str(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
+      dv.setUint16(22, 1, true); dv.setUint32(24, 8000, true); dv.setUint32(28, 8000, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
+      str(36, 'data'); dv.setUint32(40, n, true);
+      const el = new Audio(URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })));
+      el.loop = true; el.setAttribute('playsinline', ''); return el;
+    };
+    return {
+      on() { try { if (!a) a = make(); if (a.paused) { const p = a.play(); if (p && p.catch) p.catch(() => {}); } } catch (e) { /* sin audio */ } },
+      off() { try { if (a && !a.paused) a.pause(); } catch (e) { /* ya parado */ } },
+    };
+  })();
+
   // Si el sistema pausa la música al bloquear el móvil (sin que el usuario haya pausado), se reanuda sola (hasta 3 veces por canción)
   const rawPause = Player.pause.bind(Player), rawPlay = Player.play.bind(Player);
-  Player.pause = () => { S.userPause = true; rawPause(); };
-  Player.play = () => { S.userPause = false; rawPlay(); };
+  Player.pause = () => { S.userPause = true; keepAlive.off(); rawPause(); };
+  Player.play = () => { S.userPause = false; keepAlive.on(); rawPlay(); };
   function autoResume(st) {
     if (st.playing) { if (st.time > 6) S.resumeTries = 0; return; }
     if (!document.hidden || S.userPause || !S.now || S.resumeTries >= 3) return;
