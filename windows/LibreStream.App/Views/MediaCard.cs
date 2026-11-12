@@ -59,8 +59,23 @@ public sealed class MediaCard
         ArtworkUrl = artwork;
         Initials = string.Concat(title.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Where(w => char.IsLetterOrDigit(w[0])).Take(2).Select(w => char.ToUpperInvariant(w[0])));
-        Artwork = artwork is null ? null : new BitmapImage(artwork);
+        Artwork = artwork is null ? null : Sharp(artwork);
         Tile = Gradient(id);
+    }
+
+    /// <summary>
+    /// Las miniaturas de YouTube de 320x180 se ven borrosas en pantallas con escala 125-200%: se pide la de 1280x720 y, si ese vídeo
+    /// no la tiene, se vuelve a la pequeña. Las carátulas cuadradas (YouTube Music) ya vienen en buena resolución.
+    /// </summary>
+    private static BitmapImage Sharp(Uri uri)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(uri.AbsoluteUri, @"^https://i\.ytimg\.com/vi/([\w-]{11})/(mq|hq)default\.jpg$");
+        if (!m.Success) return new BitmapImage(uri);
+        var small = uri;
+        var image = new BitmapImage(new Uri($"https://i.ytimg.com/vi/{m.Groups[1].Value}/hq720.jpg"));
+        var retried = false;
+        image.ImageFailed += (_, _) => { if (!retried) { retried = true; image.UriSource = small; } };
+        return image;
     }
 
     public bool IsPlayable => YouTubeId is not null || Item is not null;

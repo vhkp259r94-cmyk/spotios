@@ -24,7 +24,13 @@
     });
   }
 
-  function load(id) { if (!ready) { pending = id; return; } player.loadVideoById(id); }
+  // Calidad: se pide la mejor (1080p; YouTube baja sola si la conexión o el vídeo no dan más). Sin esto, con el marco oculto
+  // mientras suena música, YouTube elige una resolución mínima y el vídeo se ve borroso.
+  function load(id) {
+    if (!ready) { pending = id; return; }
+    player.loadVideoById({ videoId: id, suggestedQuality: 'hd1080' });
+    try { if (typeof player.setPlaybackQuality === 'function') player.setPlaybackQuality('hd1080'); } catch (e) { /* sin soporte */ }
+  }
 
   function cmd(name, arg) {
     if (!ready) return;

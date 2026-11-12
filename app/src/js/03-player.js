@@ -110,8 +110,10 @@ var LS = globalThis.LS = globalThis.LS || {};
         setState({});
         try { await ensureYT(); } catch (e) { emit('error', { code: 'api', message: e.message }); return; }
         // En solo audio se pide la imagen más pequeña (menos decodificación = menos calor y batería)
-        if (ytReady) yt.loadVideoById(audioOnly ? { videoId: item.id, suggestedQuality: 'tiny' } : item.id); else pendingId = item.id;
-        if (audioOnly && ytReady && typeof yt.setPlaybackQuality === 'function') yt.setPlaybackQuality('tiny');
+        // Vídeo: 720p (antes sin indicar, y tras escuchar música podía quedarse en la calidad mínima); solo audio: la más pequeña
+        const quality = audioOnly ? 'tiny' : 'hd720';
+        if (ytReady) yt.loadVideoById({ videoId: item.id, suggestedQuality: quality }); else pendingId = item.id;
+        if (ytReady && typeof yt.setPlaybackQuality === 'function') yt.setPlaybackQuality(quality);
         postEq();
       } else {
         if (yt && ytReady && typeof yt.stopVideo === 'function') yt.stopVideo();
