@@ -13,11 +13,11 @@
 <div id="app">
   <nav id="nav">
     <div class="brand"><img src="<!--LOGO-->" alt="" width="30" height="30">Nsound</div>
-    <button data-page="home"><span class="ico">⌂</span>Inicio</button>
-    <button data-page="music"><span class="ico">♪</span>Música</button>
-    <button data-page="videos"><span class="ico">▶</span>Vídeos</button>
-    <button data-page="library"><span class="ico">▤</span>Biblioteca</button>
-    <button data-page="settings"><span class="ico">⚙</span>Ajustes</button>
+    <button data-page="home"><span class="ico" data-ic="home"></span>Inicio</button>
+    <button data-page="music"><span class="ico" data-ic="music"></span>Música</button>
+    <button data-page="videos"><span class="ico" data-ic="videos"></span>Vídeos</button>
+    <button data-page="library"><span class="ico" data-ic="library"></span>Biblioteca</button>
+    <button data-page="settings"><span class="ico" data-ic="settings"></span>Ajustes</button>
   </nav>
 
   <main id="main">
@@ -26,7 +26,7 @@
   </main>
 
   <aside id="lyrics" hidden>
-    <header><b>Letra</b><button id="lyricsClose">✕</button></header>
+    <header><b>Letra</b><button id="lyricsClose" data-ic="close"></button></header>
     <div id="lyricsInfo"></div>
     <ul id="lyricsList"></ul>
   </aside>
@@ -40,27 +40,27 @@
   <footer id="bar">
     <div class="now"><img id="nowImg" alt="" style="visibility:hidden"><div style="min-width:0"><div id="nowTitle">Nada en reproducción</div><div id="nowSub"></div></div><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span></div>
     <div class="center">
-      <div class="ctrl"><button class="ghost" id="prev" aria-label="Anterior">⏮</button><button id="play" aria-label="Reproducir o pausar">▶</button><button class="ghost" id="next" aria-label="Siguiente">⏭</button></div>
+      <div class="ctrl"><button class="ghost" id="prev" aria-label="Anterior" data-ic="prev"></button><button id="play" aria-label="Reproducir o pausar" data-ic="play"></button><button class="ghost" id="next" aria-label="Siguiente" data-ic="next"></button></div>
       <div class="prog"><span id="elapsed">0:00</span><input id="progress" type="range" min="0" max="1" value="0" step="1" aria-label="Progreso"><span id="total">0:00</span></div>
     </div>
     <div class="extra">
-      <button id="addList" aria-label="Añadir a una lista">＋</button>
-      <button id="heart" aria-label="Guardar en Mi biblioteca">♡</button>
-      <button id="dlBtn" aria-label="Descargas">⬇</button>
+      <button id="addList" aria-label="Añadir a una lista" data-ic="plus"></button>
+      <button id="heart" aria-label="Guardar en Mi biblioteca" data-ic="heart"></button>
+      <button id="dlBtn" aria-label="Descargas" data-ic="download"></button>
       <button id="lyricsBtn" aria-label="Letra">Letra</button>
-      <button id="videoBtn" aria-label="Mostrar u ocultar el vídeo">▭</button>
+      <button id="videoBtn" aria-label="Mostrar u ocultar el vídeo" data-ic="video"></button>
       <input id="volume" type="range" min="0" max="100" value="80" aria-label="Volumen">
     </div>
   </footer>
   <section id="np" class="np" aria-label="Reproduciendo">
-    <button class="np-close" id="npClose" aria-label="Cerrar">⌄</button>
+    <button class="np-close" id="npClose" aria-label="Cerrar" data-ic="chevDown"></button>
     <div class="np-art"><img id="npImg" alt=""></div>
     <div class="np-title" id="npTitle"></div>
     <div class="np-sub" id="npSub"></div>
     <input id="npProgress" type="range" min="0" max="1" value="0" step="1" aria-label="Progreso">
     <div class="np-times"><span id="npElapsed">0:00</span><span id="npTotal">0:00</span></div>
-    <div class="np-ctrl"><button id="npPrev" aria-label="Anterior">⏮</button><button id="npPlay" aria-label="Reproducir o pausar">▶</button><button id="npNext" aria-label="Siguiente">⏭</button></div>
-    <div class="np-extra"><button id="npHeart" aria-label="Guardar">♡</button><button id="npAdd" aria-label="Añadir a una lista">＋</button><button id="npQueue">Cola</button><button id="npLyrics">Letra</button><button id="npVideo" aria-label="Mostrar el vídeo">▭</button></div>
+    <div class="np-ctrl"><button id="npPrev" aria-label="Anterior" data-ic="prev"></button><button id="npPlay" aria-label="Reproducir o pausar" data-ic="play"></button><button id="npNext" aria-label="Siguiente" data-ic="next"></button></div>
+    <div class="np-extra"><button id="npHeart" aria-label="Guardar" data-ic="heart"></button><button id="npAdd" aria-label="Añadir a una lista" data-ic="plus"></button><button id="npQueue">Cola</button><button id="npLyrics">Letra</button><button id="npVideo" aria-label="Mostrar el vídeo" data-ic="video"></button></div>
   </section>
   <div id="addMenu" hidden></div>
   <div id="toast"></div>

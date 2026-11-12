@@ -220,3 +220,10 @@ body:not(.has-track) #bar .prog, body:not(.has-track) #bar .extra { display: non
 .q-main b, .q-main span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .q-main span { color: var(--muted); font-size: 12px; }
 .q-b { min-width: 38px; min-height: 38px; padding: 0; } .q-b[disabled] { opacity: .3; }
+
+/* Iconos SVG */
+.ic { width: 1.25em; height: 1.25em; vertical-align: -.25em; flex: none; }
+button[data-ic] { display: inline-flex; align-items: center; justify-content: center; }
+#nav .ico { display: inline-flex; align-items: center; justify-content: center; }
+#play .ic, #npPlay .ic { width: 1.4em; height: 1.4em; vertical-align: middle; }
+.card .play .ic { width: 1em; height: 1em; vertical-align: middle; }

@@ -24,6 +24,7 @@
   }
 
   // ---------- Estado ----------
+  LS.paintIcons();
   const S = {
     page: 'home', sub: 'saved',             // sub: saved | downloads | pl:<id>
     scope: 'all',                           // filtro de Inicio: all | track | video
@@ -106,7 +107,7 @@
   function card(it, listId, shape, idx) {
     return `<button class="card ${shape}" style="--i:${Math.min(idx || 0, 12)}" data-act="play" data-key="${esc(it.key)}" data-list="${esc(listId)}">
       <div class="thumb" style="--h:${hue(it.id)}">${it.thumb ? `<img loading="lazy" alt="" src="${esc(it.thumb)}" onerror="this.remove()">` : ''}
-      ${it.duration > 0 ? `<span class="dur">${LS.formatTime(it.duration)}</span>` : (it.src === 'yt' ? '<span class="dur">EN DIRECTO</span>' : '')}<span class="play" aria-hidden="true">▶</span></div>
+      ${it.duration > 0 ? `<span class="dur">${LS.formatTime(it.duration)}</span>` : (it.src === 'yt' ? '<span class="dur">EN DIRECTO</span>' : '')}<span class="play" aria-hidden="true">${LS.icon('play')}</span></div>
       <div class="t">${esc(it.title)}</div><div class="s">${esc(it.sub)}</div></button>`;
   }
 
@@ -215,7 +216,7 @@
     el.innerHTML = `<img alt="" src="https://i.ytimg.com/vi/${esc(it.id)}/${innerWidth < 800 ? 'hqdefault' : 'maxresdefault'}.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${esc(it.id)}/hqdefault.jpg'">
       <div class="shade"></div><div class="txt"><div class="label">NUEVO LANZAMIENTO${it.published ? ' · ' + esc(it.published.toUpperCase()) : ''}</div>
       <div class="big">${esc(g.title)}</div><div class="s">${esc(it.sub)} · ${LS.formatTime(it.duration)}</div>
-      <button class="primary" data-act="play" data-key="${esc(it.key)}" data-list="releases">▶ Reproducir</button></div>
+      <button class="primary" data-act="play" data-key="${esc(it.key)}" data-list="releases">${LS.icon('play')} Reproducir</button></div>
       <div class="dots">${S.releases.map((_, i) => `<span class="${i === S.heroIndex % S.releases.length ? 'on' : ''}"></span>`).join('')}</div>`;
   }
   setInterval(() => { if (!document.hidden && S.releases.length > 1 && S.page === 'home' && !S.query) { S.heroIndex = (S.heroIndex + 1) % S.releases.length; renderHero(); } }, 9000);
@@ -266,13 +267,13 @@
     v.innerHTML = `<h1>Mi biblioteca</h1>
       <div class="chips">${tabs.map(([k, l]) => `<button class="chip ${k === S.sub ? 'on' : ''}" data-sub="${esc(k)}">${esc(l)}</button>`).join('')}
       <button class="chip add" data-act="newlist">+ Nueva lista</button>
-      <button class="chip add" data-act="import">⇩ Importar</button></div><div id="libBody"></div>`;
+      <button class="chip add" data-act="import">${LS.icon('import')} Importar</button></div><div id="libBody"></div>`;
     if (S.sub === 'downloads') return renderDownloads($('#libBody'));
     const q = LS.fold(S.query);
     const pl = S.sub.startsWith('pl:') ? store.playlists.find(S.sub.slice(3)) : null;
     const src = pl ? pl.items : store.library.items();
     const items = setList('lib', src.filter((i) => !q || LS.fold(i.title + ' ' + i.sub).includes(q)).map(savedItem));
-    $('#libBody').innerHTML = `${pl ? `<div class="row-actions"><button class="primary" data-act="playall">▶ Reproducir todo</button><button data-act="dellist" data-id="${esc(pl.id)}">Eliminar lista</button></div>` : ''}
+    $('#libBody').innerHTML = `${pl ? `<div class="row-actions"><button class="primary" data-act="playall">${LS.icon('play')} Reproducir todo</button><button data-act="dellist" data-id="${esc(pl.id)}">Eliminar lista</button></div>` : ''}
       ${items.length ? grid('lib', items, 'video') : `<p class="hint">${q ? 'Nada guardado coincide con la búsqueda.' : pl ? 'Lista vacía. Reproduce algo y pulsa + en la barra inferior para añadirlo.' : 'Aún no has guardado nada. Reproduce algo y pulsa el corazón de la barra inferior.'}</p>`}`;
   }
 
@@ -391,7 +392,7 @@
   Player.on('state', (st) => {
     S.playing = st.playing; S.time = st.time; if (st.duration > 0) S.duration = st.duration;
     if (st.playing && st.time > 1) S.skips = 0;       // ya suena: se acaba la racha de errores
-    $('#play').textContent = st.playing ? '⏸' : '▶';
+    LS.setIcon($('#play'), st.playing ? 'pause' : 'play');
     $('#elapsed').textContent = LS.formatTime(S.time);
     $('#total').textContent = LS.formatTime(S.duration);
     const p = $('#progress');
@@ -420,7 +421,7 @@
     $('#nowSub').textContent = it.sub + (it.src === 'yt' ? ' · YouTube' : '');
     $('#nowImg').src = it.thumb || '';
     $('#nowImg').style.visibility = it.thumb ? 'visible' : 'hidden';
-    $('#heart').textContent = store.library.has(it) ? '♥' : '♡';
+    LS.setIcon($('#heart'), store.library.has(it) ? 'heartOn' : 'heart');
     $('#heart').classList.toggle('on', store.library.has(it));
   }
 
@@ -446,13 +447,13 @@
     $('#npTitle').textContent = it.title;
     $('#npSub').textContent = it.sub + (it.src === 'yt' ? ' · YouTube' : '');
     const saved = store.library.has(it);
-    $('#npHeart').textContent = saved ? '♥' : '♡';
+    LS.setIcon($('#npHeart'), saved ? 'heartOn' : 'heart');
     $('#npHeart').classList.toggle('on', saved);
   }
 
   function syncNp() {
     if (!$('#np').classList.contains('open')) return;
-    $('#npPlay').textContent = S.playing ? '⏸' : '▶';
+    LS.setIcon($('#npPlay'), S.playing ? 'pause' : 'play');
     $('#npElapsed').textContent = LS.formatTime(S.time);
     $('#npTotal').textContent = LS.formatTime(S.duration);
     const p = $('#npProgress');
@@ -612,9 +613,9 @@
     const cur = S.queue[S.index];
     const up = S.queue.map((it, i) => [it, i]).filter(([, i]) => i > S.index);
     const row = (it, i) => `<li><button class="q-main" data-act="qjump" data-i="${i}"><b>${esc(it.title)}</b><span>${esc(it.sub)}</span></button>
-      <button class="q-b" aria-label="Subir" data-act="qup" data-i="${i}" ${i <= S.index + 1 ? 'disabled' : ''}>▲</button>
-      <button class="q-b" aria-label="Bajar" data-act="qdown" data-i="${i}" ${i >= S.queue.length - 1 ? 'disabled' : ''}>▼</button>
-      <button class="q-b" aria-label="Quitar" data-act="qdel" data-i="${i}">✕</button></li>`;
+      <button class="q-b" aria-label="Subir" data-act="qup" data-i="${i}" ${i <= S.index + 1 ? 'disabled' : ''}>${LS.icon('up')}</button>
+      <button class="q-b" aria-label="Bajar" data-act="qdown" data-i="${i}" ${i >= S.queue.length - 1 ? 'disabled' : ''}>${LS.icon('down')}</button>
+      <button class="q-b" aria-label="Quitar" data-act="qdel" data-i="${i}">${LS.icon('close')}</button></li>`;
     o.innerHTML = `<div class="imp-box" role="dialog" aria-modal="true" aria-label="Cola de reproducción"><h2>Cola</h2>
       <p class="imp-sub">${cur ? 'Suena ahora: ' + esc(cur.title) : 'No hay nada sonando.'}</p>
       ${up.length ? `<ul class="q-list">${up.map(([it, i]) => row(it, i)).join('')}</ul>` : '<p class="imp-note">No hay más canciones en la cola. Mantén pulsada una tarjeta (o clic derecho) para añadirla.</p>'}
