@@ -469,7 +469,7 @@
     if (msOk) {
       try { navigator.mediaSession.metadata = new MediaMetadata(m); } catch (e) { /* formato no admitido */ }
     }
-    if (Native.platform !== 'web') Native.call('nowPlaying', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: it.duration || 0, position: 0, playing: true }).catch(() => {});
+    if (Native.platform === 'android') Native.call('nowPlaying', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: it.duration || 0, position: 0, playing: true }).catch(() => {});
   }
   function mediaSessionTick(st) {
     if (msOk) {
@@ -487,7 +487,7 @@
     // en la barra de tiempo, o cada 20 s para no desviarse.
     const nowMs = Date.now(), last = mediaSessionTick.last || { pos: 0, at: 0, playing: null };
     const expected = last.pos + (last.playing ? (nowMs - last.at) / 1000 : 0);
-    if (Native.platform !== 'web' && (last.playing !== !!st.playing || Math.abs((st.time || 0) - expected) > 2.5 || nowMs - last.at > 20000)) {
+    if (Native.platform === 'android' && (last.playing !== !!st.playing || Math.abs((st.time || 0) - expected) > 2.5 || nowMs - last.at > 20000)) {
       mediaSessionTick.last = { pos: st.time || 0, at: nowMs, playing: !!st.playing };
       Native.call('nowPlayingState', { position: st.time || 0, duration: st.duration > 0 ? st.duration : S.duration, playing: !!st.playing }).catch(() => {});
     }
@@ -549,7 +549,7 @@
   // bloqueada. Así el sistema sigue ejecutando la página (para reanudar si YouTube se pausa) y muestra NUESTROS datos y botones
   // en la pantalla de bloqueo. Solo en la web: las apps ya tienen su propio arreglo.
   const keepAlive = (() => {
-    if (Native.platform !== 'web' || typeof Audio === 'undefined' || typeof Blob === 'undefined') return { on() {}, off() {} };
+    if ((Native.platform !== 'web' && Native.platform !== 'ios') || typeof Audio === 'undefined' || typeof Blob === 'undefined') return { on() {}, off() {} };
     let a = null;
     const make = () => {
       const n = 8000, buf = new Uint8Array(44 + n).fill(128), dv = new DataView(buf.buffer);
