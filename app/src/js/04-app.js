@@ -558,11 +558,15 @@
       dv.setUint16(22, 1, true); dv.setUint32(24, 8000, true); dv.setUint32(28, 8000, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
       str(36, 'data'); dv.setUint32(40, n, true);
       const el = new Audio(URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })));
-      el.loop = true; el.setAttribute('playsinline', ''); return el;
+      el.loop = true; el.setAttribute('playsinline', '');
+      // Si la pausa la hace el sistema (botón de los cascos, pantalla de bloqueo), YouTube también se pausa
+      el.addEventListener('pause', () => { if (mine > 0) { mine--; return; } if (S.now && !S.userPause) Player.pause(); });
+      return el;
     };
+    let mine = 0;                                      // pausas que hacemos nosotros (no son del sistema)
     return {
       on() { try { if (!a) a = make(); if (a.paused) { const p = a.play(); if (p && p.catch) p.catch(() => {}); } } catch (e) { /* sin audio */ } },
-      off() { try { if (a && !a.paused) a.pause(); } catch (e) { /* ya parado */ } },
+      off() { try { if (a && !a.paused) { mine++; a.pause(); } } catch (e) { /* ya parado */ } },
     };
   })();
 
@@ -570,10 +574,12 @@
   const rawPause = Player.pause.bind(Player), rawPlay = Player.play.bind(Player);
   Player.pause = () => { S.userPause = true; keepAlive.off(); rawPause(); };
   Player.play = () => { S.userPause = false; keepAlive.on(); rawPlay(); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) S.hiddenAt = Date.now(); });
   function autoResume(st) {
     if (st.playing) { if (st.time > 6) S.resumeTries = 0; return; }
-    if (!document.hidden || S.userPause || !S.now || S.resumeTries >= 3) return;
-    if (S.duration && S.time >= S.duration - 2) return;           // terminó: lo gestiona «ended»
+    // Solo si la pausa llega justo al bloquear (la hace el sistema). Una pausa más tarde viene de los cascos o del usuario: se respeta
+    if (!LS.shouldAutoResume({ playing: st.playing, hidden: document.hidden, userPause: S.userPause, hasNow: !!S.now, tries: S.resumeTries,
+      time: S.time, duration: S.duration, hiddenAt: S.hiddenAt, now: Date.now() })) return;
     S.resumeTries = (S.resumeTries || 0) + 1;
     setTimeout(() => { if (!S.playing && !S.userPause && document.hidden) rawPlay(); }, 500);
   }
@@ -738,7 +744,7 @@
       <input id="impUrl" type="url" inputmode="url" autocomplete="off" placeholder="${esc(LS.IMPORT_HINT)}…" aria-label="Enlace">
       <div class="imp-or">o una lista grande desde un archivo</div>
       <label class="imp-file"><input id="impFile" type="file" accept=".csv,.json,.txt,text/csv,application/json,text/plain" hidden>Elegir archivo (CSV, JSON o TXT)</label>
-      <p class="imp-note">${esc(LS.IMPORT_NOTICE)} Con archivo, hasta ${LS.IMPORT_MAX} canciones por lista: exporta tu lista de Spotify con Exportify (CSV) o con «Descargar tus datos» (JSON).</p>
+      <p class="imp-note">${esc(LS.IMPORT_NOTICE)} <b>Spotify:</b> por enlace llegan solo las primeras canciones (unas 50–100). Para la lista completa, hasta ${LS.IMPORT_MAX}, exporta tu lista con Exportify (CSV) o con «Descargar tus datos» (JSON) y elige el archivo.</p>
       <div id="impOut" class="imp-out" aria-live="polite"></div>
       <div class="imp-btns"><button data-act="importclose">Cancelar</button><button id="impGo" class="primary" data-act="importgo">Importar</button></div></div>`;
     o.hidden = false;
@@ -814,7 +820,8 @@
       if (!info.tracks.length) throw new Error('No se encontraron canciones. La lista debe ser pública, y el servicio puede haber cambiado su página.');
     } catch (e) { out.textContent = e.message || 'No se pudo importar.'; importing.busy = false; $('#impGo').disabled = false; return; }
     importing.busy = false;
-    importTracks({ name: info.name || 'Lista importada', plId: null, wanted: info.tracks, total: info.tracks.length, found: 0, missing: [], tries: {}, extra: 0 });
+    importTracks({ name: info.name || 'Lista importada', plId: null, wanted: info.tracks, total: info.tracks.length, found: 0, missing: [], tries: {}, extra: 0,
+      tip: link.service === 'spotify' && link.kind === 'playlist' && info.tracks.length >= 50 ? 'Spotify solo entrega las primeras canciones por enlace. Si tu lista es más larga, exporta el archivo (Exportify o «Descargar tus datos») y elígelo con «Elegir archivo».' : '' });
   }
 
   // Busca una canción; si YouTube pide calma (429 / error de red) espera y reintenta. Devuelve { item } | { miss } | { retry }
@@ -878,6 +885,7 @@
       if (!state.found) throw new Error('No se encontró ninguna de las canciones en YouTube Music.');
       out.innerHTML = `<b>${state.found} de ${state.total} canciones</b> añadidas a «${esc(pl.name)}».`
         + (state.dups ? `<p class="imp-note">${state.dups} coincidían con canciones ya añadidas (la misma versión) y no se repiten.</p>` : '')
+        + (state.tip ? `<p class="imp-note">${esc(state.tip)}</p>` : '')
         + (state.extra ? `<p class="imp-note">Tu lista tiene ${state.extra} canciones: se importaron las primeras ${LS.IMPORT_MAX}.</p>` : '')
         + (state.missing.length ? `<details><summary>${state.missing.length} sin encontrar</summary><ul>${state.missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul></details>` : '')
         + `<button class="primary" data-act="importopen" data-id="${esc(pl.id)}">Abrir lista</button>`;

@@ -49,6 +49,16 @@ var LS = globalThis.LS = globalThis.LS || {};
     return Math.max(0, Math.min(1, 0.65 * beat + 0.35 * swell));
   };
 
+  /**
+   * ¿Hay que reanudar sola la música tras una pausa? Solo si la hizo el sistema al bloquear la pantalla: la página está oculta,
+   * la pausa llega en los 4 s siguientes a ocultarse, no la pidió el usuario (ni los cascos), no terminó la canción y quedan reintentos.
+   */
+  LS.shouldAutoResume = function (c) {
+    if (c.playing || !c.hidden || c.userPause || !c.hasNow || (c.tries || 0) >= 3) return false;
+    if (c.duration && c.time >= c.duration - 2) return false;
+    return c.now - (c.hiddenAt || 0) <= 4000;
+  };
+
   /** Posición válida para setPositionState, o null si todavía no se puede dar. */
   LS.mediaPosition = function (time, duration) {
     const d = Number(duration), t = Number(time);

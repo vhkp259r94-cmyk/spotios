@@ -405,3 +405,15 @@ test('copia de la biblioteca: exportar, restaurar y limpiar', () => {
   const mem = {}; const st = LS.createStores({ getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } });
   assert.equal(st.library.addMany([it(1), it(2), it(2)]), 2); assert.equal(st.library.addMany([it(2), it(3)]), 1); assert.equal(st.library.items().length, 3);
 });
+
+test('reanudar sola solo tras bloquear, no con la pausa de los cascos', () => {
+  const base = { playing: false, hidden: true, userPause: false, hasNow: true, tries: 0, time: 40, duration: 200, hiddenAt: 1000, now: 2500 };
+  assert.equal(LS.shouldAutoResume(base), true);                                    // el sistema pausa justo al bloquear
+  assert.equal(LS.shouldAutoResume({ ...base, now: 1000 + 12000 }), false);         // pausa de los cascos pasados unos segundos: se respeta
+  assert.equal(LS.shouldAutoResume({ ...base, userPause: true }), false);           // la pidió el usuario
+  assert.equal(LS.shouldAutoResume({ ...base, hidden: false }), false);             // pantalla encendida
+  assert.equal(LS.shouldAutoResume({ ...base, playing: true }), false);
+  assert.equal(LS.shouldAutoResume({ ...base, time: 199 }), false);                 // la canción terminó
+  assert.equal(LS.shouldAutoResume({ ...base, tries: 3 }), false);                  // máximo de reintentos
+  assert.equal(LS.shouldAutoResume({ ...base, hasNow: false }), false);
+});
