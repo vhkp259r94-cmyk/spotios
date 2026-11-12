@@ -36,8 +36,8 @@ createServer(async (req, res) => {
       const target = new URL(url.searchParams.get('url') || '');
       if (target.protocol !== 'https:' || !ALLOWED.includes(target.hostname)) { res.writeHead(403).end('host no permitido'); return; }
       const r = await fetch(target, { headers: { 'User-Agent': UA, 'Accept-Language': 'es-ES,es;q=0.9' } });
-      res.writeHead(r.status, { 'Content-Type': r.headers.get('content-type') || 'text/plain' }).end(await r.text());
-    } catch (e) { res.writeHead(502).end(String(e)); }
+      const t = await r.text(); res.writeHead(r.status, { 'Content-Type': r.headers.get('content-type') || 'text/plain' }).end(t);
+    } catch (e) { if (!res.headersSent) res.writeHead(502).end(String(e)); else res.destroy(); }
     return;
   }
   if (url.pathname === '/__post' && req.method === 'POST') {
@@ -47,8 +47,8 @@ createServer(async (req, res) => {
       let body = '';
       for await (const chunk of req) { body += chunk; if (body.length > MAX_BODY) { res.writeHead(413).end('demasiado grande'); return; } }
       const r = await fetch(target, { method: 'POST', body, headers: { 'User-Agent': UA, 'Content-Type': 'application/json', Origin: 'https://music.youtube.com', Referer: 'https://music.youtube.com/', 'Accept-Language': 'es-ES,es;q=0.9' } });
-      res.writeHead(r.status, { 'Content-Type': 'application/json' }).end(await r.text());
-    } catch (e) { res.writeHead(502).end(String(e)); }
+      const t = await r.text(); res.writeHead(r.status, { 'Content-Type': 'application/json' }).end(t);
+    } catch (e) { if (!res.headersSent) res.writeHead(502).end(String(e)); else res.destroy(); }
     return;
   }
   const rel = url.pathname === '/' ? 'index.html' : url.pathname.replace(/\.\./g, '');
@@ -57,3 +57,6 @@ createServer(async (req, res) => {
   const ext = rel.slice(rel.lastIndexOf('.'));
   res.writeHead(200, { 'Content-Type': TYPES[ext] || 'application/octet-stream' }).end(readFileSync(file));
 }).listen(port, host, () => console.log(`Nsound (pruebas) en http://${host}:${port}${TOKEN ? ' (con clave)' : ''}`));
+
+process.on('uncaughtException', (e) => console.error('Error no controlado (el servidor sigue):', e));
+process.on('unhandledRejection', (e) => console.error('Promesa rechazada (el servidor sigue):', e));
