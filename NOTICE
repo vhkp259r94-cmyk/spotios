@@ -16,3 +16,8 @@ Importar listas: solo se leen datos públicos (título y artista) de una canció
 No se accede a cuentas ni se copia audio, portadas o letras de esos servicios.
 
 Terceros usados: LRCLIB (letras, base abierta), Internet Archive / Jamendo / Free Music Archive (catálogo libre).
+
+Uso: proyecto personal y no comercial. Nsound no aloja ni distribuye música ni vídeos; el contenido pertenece a sus titulares
+y se reproduce con el reproductor oficial incrustado de YouTube.
+Retirada: si eres titular de derechos o de una marca y quieres que algo se retire o se corrija, abre una incidencia en
+https://github.com/vhkp259r94-cmyk/spotios/issues indicando qué y dónde.
