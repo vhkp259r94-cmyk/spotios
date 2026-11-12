@@ -56,11 +56,6 @@
     src: 'cat', id: c.id, title: c.title, sub: c.artist, duration: c.durationSec, thumb: c.artworkUrl || '',
     url: (c.sources.find((s) => s.provider !== 'youtube') || c.sources[0]).url, kind: c.kind, license: c.license && c.license.spdx,
   });
-  const iaItem = (a) => remember({
-    src: 'ia', id: a.id, title: a.title, artist: a.artist, sub: a.artist + ' · Internet Archive', duration: 0,
-    thumb: LS.archiveThumb(a.id), kind: 'track', license: a.license, url: '',
-  });
-  const iaJson = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); };
   const savedItem = (s) => remember(Object.assign({}, s));
 
   function toast(msg, ms) {
@@ -207,18 +202,6 @@
     await showResults('#hits', id, 'home');
   }
 
-  // Música libre (Internet Archive) debajo de los resultados de YouTube: reproductor propio, sin anuncios
-  async function showFree(box, q, id, listId) {
-    try {
-      const found = (await LS.archiveSearch(q, iaJson)).map(iaItem);
-      if (id !== S.renderId || !found.length) return;
-      const lid = listId + '-free';
-      const sec = document.createElement('section');
-      sec.innerHTML = '<h2>Música libre (Internet Archive)</h2>' + grid(lid, setList(lid, found), 'track');
-      box.appendChild(sec);
-    } catch (e) { /* sin red o sin resultados: la sección simplemente no aparece */ }
-  }
-
   async function showResults(target, id, listId) {
     const sc = scopeNow(), q = S.query.trim();
     const box = $(target);
@@ -243,7 +226,6 @@
       }
       items = setList(listId, items);
       box.innerHTML = items.length ? grid(listId, items, sc === 'track' ? 'track' : 'video') : '<p class="hint">Sin resultados en YouTube.</p>';
-      if (q && sc === 'track') showFree(box, q, id, listId);
     } catch (e) {
       if (id === S.renderId) box.innerHTML = `<p class="hint err">No se pudo buscar en YouTube: ${esc(e.message)}</p>`;
     }
@@ -449,7 +431,7 @@
     const keys = lists.get(listId) || [key];
     S.queue = keys.map((k) => reg.get(k)).filter(Boolean);
     S.index = Math.max(0, S.queue.findIndex((i) => i.key === key));
-    S.audioOnly = (scopeNow() === 'track' && it.src === 'yt') || it.src === 'ia';
+    S.audioOnly = scopeNow() === 'track' && it.src === 'yt';
     S.skips = 0;
     start();
   }
@@ -457,11 +439,6 @@
   function start() {
     const it = S.queue[S.index];
     if (!it) return;
-    if (it.src === 'ia' && !it.url) {                  // Internet Archive: primero se busca el archivo de audio del elemento
-      LS.archiveResolve(it.id, iaJson).then((r) => { it.url = r.url; if (r.duration) it.duration = r.duration; if (S.queue[S.index] === it) start(); })
-        .catch(() => { toast('No se pudo cargar «' + it.title + '»'); if (S.queue[S.index] === it) next(); });
-      return;
-    }
     S.userPause = false; S.resumeTries = 0;
     keepAlive.on();
     S.now = it; S.time = 0; S.duration = it.duration || 0; S.lyrics = null; S.lyricsFor = ''; S.lyricIndex = -1;

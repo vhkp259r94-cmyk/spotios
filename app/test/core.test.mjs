@@ -4,7 +4,6 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 require('../src/js/00-core.js');
 require('../src/js/00-import.js');
-require('../src/js/00-archive.js');
 require('../src/js/00-queue.js');
 require('../src/js/00-media.js');
 require('../src/js/01-stores.js');
@@ -423,26 +422,4 @@ test('reanudar sola solo tras bloquear, no con la pausa de los cascos', () => {
   assert.equal(LS.shouldAutoResume({ ...open, now: 12000 }), false);
   assert.equal(LS.shouldAutoResume({ ...open, wasPlaying: false }), false);
   assert.equal(LS.shouldAutoResume({ ...open, userPause: true }), false);
-});
-
-test('Internet Archive: búsqueda solo con licencia libre y sin caracteres especiales', () => {
-  const u = LS.archiveSearchUrl('rock (live) "x"');
-  assert.match(u, /^https:\/\/archive\.org\/advancedsearch\.php\?/);
-  const q = decodeURIComponent(u.match(/q=([^&]+)/)[1]);
-  assert.ok(q.includes('creativecommons') && q.includes('mediatype:audio'));
-  assert.ok(!q.split(' AND ')[0].includes('"'));
-});
-
-test('Internet Archive: interpreta resultados y descarta identificadores raros', () => {
-  const r = LS.parseArchiveSearch({ response: { docs: [{ identifier: 'abc_1', title: ['T'], creator: 'Yo' }, { identifier: '../x' }, { identifier: 'z' }] } });
-  assert.deepEqual(r.map((x) => x.id), ['abc_1', 'z']);
-  assert.equal(r[0].title, 'T'); assert.equal(r[1].artist, 'Internet Archive');
-  assert.deepEqual(LS.parseArchiveSearch(null), []);
-});
-
-test('Internet Archive: elige el MP3 y calcula la duración', () => {
-  const f = LS.archivePickFile('id1', { files: [{ name: 'a.jpg' }, { name: 'sub/pista 1.mp3', format: 'VBR MP3', length: '3:05' }] });
-  assert.equal(f.url, 'https://archive.org/download/id1/sub/pista%201.mp3');
-  assert.equal(f.duration, 185);
-  assert.equal(LS.archivePickFile('id1', { files: [{ name: 'a.txt' }] }), null);
 });
