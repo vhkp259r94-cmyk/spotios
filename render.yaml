@@ -1,0 +1,18 @@
+# Nsound: servidor de pruebas gratuito en Render (https://render.com).
+# En Render: New → Blueprint → elige este repositorio → Apply. La clave de acceso (LS_TOKEN) la genera Render:
+# míral en el servicio → Environment, y abre una vez desde el móvil  https://TU-SERVICIO.onrender.com/?k=CLAVE
+# El plan gratuito se duerme tras 15 minutos sin usar: al abrir el enlace tarda ~1 min en despertar.
+services:
+  - type: web
+    name: nsound-pruebas
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: node app/build.mjs
+    startCommand: node app/dev/server.mjs
+    healthCheckPath: /healthz
+    envVars:
+      - key: LS_TOKEN
+        generateValue: true
+      - key: NODE_VERSION
+        value: "22"
