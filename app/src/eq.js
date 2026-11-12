@@ -5,6 +5,22 @@
 (() => {
   // Solo en YouTube: sobre medios de otros orígenes (sin CORS) el audio quedaría en silencio
   if (!/(^|\.)youtube(-nocookie)?\.com$/.test(location.hostname)) return;
+  // Segundo plano: el reproductor de YouTube se pausa solo cuando la página pasa a «oculta» (pantalla bloqueada o app en segundo
+  // plano). Aquí se le indica que sigue visible y se descartan los avisos de cambio de visibilidad, como hace la
+  // «reproducción en segundo plano» de Brave. Solo afecta al marco de YouTube; la interfaz de Nsound no se toca.
+  if (!window.__lsKeepAlive) {
+    window.__lsKeepAlive = true;
+    try {
+      const fixed = (proto, name, value) => { try { Object.defineProperty(proto, name, { configurable: true, get: () => value }); } catch (e) { /* ya definido */ } };
+      fixed(Document.prototype, 'hidden', false);
+      fixed(Document.prototype, 'webkitHidden', false);
+      fixed(Document.prototype, 'visibilityState', 'visible');
+      fixed(Document.prototype, 'webkitVisibilityState', 'visible');
+      const swallow = (e) => e.stopImmediatePropagation();
+      ['visibilitychange', 'webkitvisibilitychange'].forEach((t) => { document.addEventListener(t, swallow, true); window.addEventListener(t, swallow, true); });
+      document.hasFocus = () => true;
+    } catch (e) { /* si el navegador no lo permite, queda como antes */ }
+  }
   if (window.__lsEqInstalled) return;
   window.__lsEqInstalled = true;
 

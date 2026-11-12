@@ -481,8 +481,12 @@
         }
       } catch (e) { /* sin soporte */ }
     }
-    if (Native.platform !== 'web' && Date.now() - msPos > 900) {
-      msPos = Date.now();
+    // El sistema avanza solo el reloj de la pantalla de bloqueo: se envía únicamente cuando cambia reproducir/pausa, tras un salto
+    // en la barra de tiempo, o cada 20 s para no desviarse.
+    const nowMs = Date.now(), last = mediaSessionTick.last || { pos: 0, at: 0, playing: null };
+    const expected = last.pos + (last.playing ? (nowMs - last.at) / 1000 : 0);
+    if (Native.platform !== 'web' && (last.playing !== !!st.playing || Math.abs((st.time || 0) - expected) > 2.5 || nowMs - last.at > 20000)) {
+      mediaSessionTick.last = { pos: st.time || 0, at: nowMs, playing: !!st.playing };
       Native.call('nowPlayingState', { position: st.time || 0, duration: st.duration > 0 ? st.duration : S.duration, playing: !!st.playing }).catch(() => {});
     }
   }
