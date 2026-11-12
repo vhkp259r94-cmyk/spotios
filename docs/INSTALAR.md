@@ -4,7 +4,8 @@ Nsound es gratuita y no tiene cuentas ni suscripciones. Los paquetes no están f
 (Microsoft Store, Google Play, App Store), así que cada sistema te pedirá una confirmación al instalar.
 Es normal: no significa que haya nada raro, sino que la app no pasa por una tienda.
 
-**Dónde conseguirlos:** en la [beta 1 (Releases)](https://github.com/vhkp259r94-cmyk/spotios/releases/tag/v0.8.0-beta.1) o en la pestaña *Actions* → ejecución de «Build Android APK» / «Build unsigned IPA» / «Build Windows app»
+**Dónde conseguirlos:** en [Releases](https://github.com/vhkp259r94-cmyk/spotios/releases) (cuando haya una versión
+publicada) o en la pestaña *Actions* → ejecución de «Build Android APK» / «Build unsigned IPA» / «Build Windows app»
 → *Artifacts* (hace falta sesión iniciada en GitHub).
 
 **Comprobar que el archivo no está alterado (opcional):** cada paquete trae un `.sha256`.
@@ -85,8 +86,8 @@ y la app deja de abrirse, y pasas tus datos por terceros que no controlas.
 **Limitaciones con Apple ID gratuito (opciones A, B y C):** la firma **caduca a los 7 días** y puedes tener como máximo
 3 apps firmadas así a la vez. Los datos se conservan si reinstalas encima.
 
-> **Fuente de Nsound:** en SideStore o AltStore, añade esta fuente y Nsound se instala y se actualiza desde ahí:
-> `https://vhkp259r94-cmyk.github.io/spotios/source.json`
+> Una «fuente» propia de SideStore/AltStore (para instalar y actualizar Nsound con un solo enlace) necesita un enlace
+> público al `.ipa`. Hoy no hay versión publicada, así que todavía no existe.
 
 ---
 
