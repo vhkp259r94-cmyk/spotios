@@ -1,0 +1,38 @@
+name: Probe YouTube desde un centro de datos
+
+# Prueba puntual (manual): ¿YouTube y YouTube Music devuelven resultados a la IP de un servidor? Sirve para elegir dónde alojar la web de pruebas.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Probar las búsquedas a través del puente
+        shell: bash
+        run: |
+          node app/build.mjs
+          (PORT=5199 LS_HOST=127.0.0.1 node app/dev/server.mjs > /tmp/srv.log 2>&1 &)
+          sleep 2
+          U=http://127.0.0.1:5199
+          for q in "bad bunny" "quevedo" "rosalia" "estopa" "shakira"; do
+            enc=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$q")
+            yt=$(curl -s -o /tmp/yt.html -w "%{http_code}" "$U/__proxy?url=https%3A%2F%2Fwww.youtube.com%2Fresults%3Fsearch_query%3D$enc")
+            n=$(grep -o '"videoRenderer"' /tmp/yt.html | wc -l)
+            consent=$(grep -c "consent.youtube.com\|Before you continue" /tmp/yt.html || true)
+            body='{"context":{"client":{"clientName":"WEB_REMIX","clientVersion":"1.20241106.01.00","hl":"es","gl":"ES"}},"query":"'"$q"'","params":"EgWKAQIIAWoMEA4QChADEAQQCRAF"}'
+            ym=$(curl -s -o /tmp/ym.json -w "%{http_code}" -X POST -H "Content-Type: application/json" --data "$body" "$U/__post?url=https%3A%2F%2Fmusic.youtube.com%2Fyoutubei%2Fv1%2Fsearch%3FprettyPrint%3Dfalse")
+            m=$(grep -o '"musicResponsiveListItemRenderer"' /tmp/ym.json | wc -l)
+            echo "búsqueda «$q»: YouTube http=$yt vídeos=$n consentimiento=$consent | YouTube Music http=$ym canciones=$m"
+          done
+          echo "--- LRCLIB / Deezer:"
+          curl -s -o /dev/null -w "lrclib %{http_code}\n" "$U/__proxy?url=https%3A%2F%2Flrclib.net%2Fapi%2Fsearch%3Fq%3Dqueen"
+          curl -s -o /dev/null -w "deezer %{http_code}\n" "$U/__proxy?url=https%3A%2F%2Fapi.deezer.com%2Ftrack%2F3135556"
