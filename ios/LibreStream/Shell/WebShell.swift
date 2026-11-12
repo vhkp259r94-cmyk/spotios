@@ -160,13 +160,9 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
             let opts = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt).map { AVAudioSession.InterruptionOptions(rawValue: $0) }
             if opts?.contains(.shouldResume) == true { self?.sendRemote(["cmd": "play"]) }
         })
-        audioObservers.append(nc.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+        audioObservers.append(nc.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
             try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
             try? AVAudioSession.sharedInstance().setActive(true)
-            // Si el sistema pausa el vídeo de YouTube al salir de la app, se reanuda (solo si no la pausó el usuario)
-            for delay in [0.6, 1.5, 3.0] {
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self?.sendRemote(["cmd": "resume"]) }
-            }
         })
         audioObservers.append(nc.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { _ in
             try? AVAudioSession.sharedInstance().setActive(true)

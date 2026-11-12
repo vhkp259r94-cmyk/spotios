@@ -54,10 +54,9 @@ var LS = globalThis.LS = globalThis.LS || {};
    * la pausa llega en los 4 s siguientes a ocultarse, no la pidió el usuario (ni los cascos), no terminó la canción y quedan reintentos.
    */
   LS.shouldAutoResume = function (c) {
-    if (c.playing || c.userPause || !c.hasNow || (c.tries || 0) >= 3) return false;
+    if (c.playing || !c.hidden || c.userPause || !c.hasNow || (c.tries || 0) >= 3) return false;
     if (c.duration && c.time >= c.duration - 2) return false;
-    if (c.hidden) return c.now - (c.hiddenAt || 0) <= 4000;                          // el sistema pausa justo al bloquear
-    return !!c.wasPlaying && c.now - (c.visibleAt || 0) <= 4000;                     // o justo al desbloquear, si sonaba antes
+    return c.now - (c.hiddenAt || 0) <= 4000;
   };
 
   /** Posición válida para setPositionState, o null si todavía no se puede dar. */

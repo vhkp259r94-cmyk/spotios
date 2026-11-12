@@ -416,10 +416,4 @@ test('reanudar sola solo tras bloquear, no con la pausa de los cascos', () => {
   assert.equal(LS.shouldAutoResume({ ...base, time: 199 }), false);                 // la canción terminó
   assert.equal(LS.shouldAutoResume({ ...base, tries: 3 }), false);                  // máximo de reintentos
   assert.equal(LS.shouldAutoResume({ ...base, hasNow: false }), false);
-  // al desbloquear: si sonaba antes y se pausa en los 4 s siguientes, se reanuda; más tarde (cascos o usuario), no
-  const open = { ...base, hidden: false, wasPlaying: true, visibleAt: 2000, now: 3500 };
-  assert.equal(LS.shouldAutoResume(open), true);
-  assert.equal(LS.shouldAutoResume({ ...open, now: 12000 }), false);
-  assert.equal(LS.shouldAutoResume({ ...open, wasPlaying: false }), false);
-  assert.equal(LS.shouldAutoResume({ ...open, userPause: true }), false);
 });

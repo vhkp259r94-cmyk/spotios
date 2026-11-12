@@ -469,7 +469,7 @@
     if (msOk) {
       try { navigator.mediaSession.metadata = new MediaMetadata(m); } catch (e) { /* formato no admitido */ }
     }
-    if (Native.platform === 'android') Native.call('nowPlaying', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: it.duration || 0, position: 0, playing: true }).catch(() => {});
+    if (Native.platform !== 'web') Native.call('nowPlaying', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: it.duration || 0, position: 0, playing: true }).catch(() => {});
   }
   function mediaSessionTick(st) {
     if (msOk) {
@@ -487,7 +487,7 @@
     // en la barra de tiempo, o cada 20 s para no desviarse.
     const nowMs = Date.now(), last = mediaSessionTick.last || { pos: 0, at: 0, playing: null };
     const expected = last.pos + (last.playing ? (nowMs - last.at) / 1000 : 0);
-    if (Native.platform === 'android' && (last.playing !== !!st.playing || Math.abs((st.time || 0) - expected) > 2.5 || nowMs - last.at > 20000)) {
+    if (Native.platform !== 'web' && (last.playing !== !!st.playing || Math.abs((st.time || 0) - expected) > 2.5 || nowMs - last.at > 20000)) {
       mediaSessionTick.last = { pos: st.time || 0, at: nowMs, playing: !!st.playing };
       Native.call('nowPlayingState', { position: st.time || 0, duration: st.duration > 0 ? st.duration : S.duration, playing: !!st.playing }).catch(() => {});
     }
@@ -505,9 +505,7 @@
   // Los botones de la pantalla de bloqueo del iPhone llegan como eventos nativos
   Native.onEvent((e) => {
     if (!e || e.type !== 'remote') return;
-    if (e.cmd === 'play') Player.play();
-    else if (e.cmd === 'resume') { if (S.now && !S.userPause && !S.playing) Player.play(); }   // al pasar a segundo plano: solo reanuda si no la pausó el usuario
-    else if (e.cmd === 'pause') Player.pause();
+    if (e.cmd === 'play') Player.play(); else if (e.cmd === 'pause') Player.pause();
     else if (e.cmd === 'next') next(); else if (e.cmd === 'prev') prev();
     else if (e.cmd === 'seek' && typeof e.position === 'number') Player.seek(e.position);
   });
@@ -576,14 +574,14 @@
   const rawPause = Player.pause.bind(Player), rawPlay = Player.play.bind(Player);
   Player.pause = () => { S.userPause = true; keepAlive.off(); rawPause(); };
   Player.play = () => { S.userPause = false; keepAlive.on(); rawPlay(); };
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { S.hiddenAt = Date.now(); S.wasPlaying = S.playing; } else S.visibleAt = Date.now(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) S.hiddenAt = Date.now(); });
   function autoResume(st) {
     if (st.playing) { if (st.time > 6) S.resumeTries = 0; return; }
     // Solo si la pausa llega justo al bloquear (la hace el sistema). Una pausa más tarde viene de los cascos o del usuario: se respeta
     if (!LS.shouldAutoResume({ playing: st.playing, hidden: document.hidden, userPause: S.userPause, hasNow: !!S.now, tries: S.resumeTries,
-      time: S.time, duration: S.duration, hiddenAt: S.hiddenAt, visibleAt: S.visibleAt, wasPlaying: S.wasPlaying, now: Date.now() })) return;
+      time: S.time, duration: S.duration, hiddenAt: S.hiddenAt, now: Date.now() })) return;
     S.resumeTries = (S.resumeTries || 0) + 1;
-    setTimeout(() => { if (!S.playing && !S.userPause) rawPlay(); }, 500);
+    setTimeout(() => { if (!S.playing && !S.userPause && document.hidden) rawPlay(); }, 500);
   }
 
   Player.on('state', (st) => {
@@ -602,26 +600,8 @@
     followLyrics();
   });
   Player.on('ended', next);
-  // Si un vídeo no deja reproducirse fuera de youtube.com (muy habitual en los oficiales de artistas grandes), se busca otra
-  // versión de la misma canción en YouTube Music (suelen dejar) y se usa en su lugar. Un solo intento por canción.
-  const altTried = new Set();
-  async function tryAlternative(it) {
-    if (!it || it.src !== 'yt' || altTried.has(it.id)) return false;
-    altTried.add(it.id);
-    try {
-      const clean = (x) => String(x || '').replace(/[(\[][^)\]]*[)\]]/g, ' ').replace(/\s+/g, ' ').trim();
-      const res = (await musicSearch((clean(it.title) + ' ' + clean(it.artist || it.sub)).trim()))
-        .filter((m) => m.id !== it.id && !altTried.has(m.id) && LS.isSong({ title: m.title, duration: m.duration }));
-      if (!res.length || S.queue[S.index] !== it) return false;
-      S.queue[S.index] = musicItem(res[0]);
-      start();
-      return true;
-    } catch (e) { return false; }
-  }
-
-  Player.on('error', async (e) => {
-    const cur = S.now, t = cur ? cur.title : '';
-    if ((e.code === 101 || e.code === 150 || e.code === 100 || e.code === 5) && await tryAlternative(cur)) return;
+  Player.on('error', (e) => {
+    const t = S.now ? S.now.title : '';
     toast(e.code === 101 || e.code === 150 ? `«${t}» no permite reproducirse fuera de youtube.com (lo decide quien lo subió).` : `No se pudo reproducir «${t}» (${e.message || 'error ' + e.code}).`);
     showVideo(false);
     S.skips++;
