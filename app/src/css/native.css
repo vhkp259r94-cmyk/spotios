@@ -1,0 +1,72 @@
+/* ===== Sensación de app (no de página web) =====
+   Va después de app.css y fx.css. Lo cosmético usa body.fx; el comportamiento (sin gestos de navegador) vale para todos los estilos. */
+
+/* Sin rebote, sin selección de texto, sin zoom accidental, sin resaltado azul */
+html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+body { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+input, textarea, .selectable { -webkit-user-select: text; user-select: text; }
+#main { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+img { -webkit-user-drag: none; }
+button { -webkit-tap-highlight-color: transparent; }
+
+/* Zonas seguras (muesca y barra inferior del iPhone) */
+#top { padding-top: max(14px, env(safe-area-inset-top)); }
+#bar { padding-bottom: max(0px, env(safe-area-inset-bottom)); }
+
+/* Respuesta al tacto: los botones se hunden un poco */
+.chip, #bar button, #nav button, .np button, .card, .imp button { transition: transform .14s ease, background .2s, box-shadow .2s; }
+.chip:active, #bar button:active, #nav button:active, .np button:active, .imp button:active { transform: scale(.94); }
+.card:active { transform: scale(.975); }
+
+/* Pantalla de arranque */
+#splash { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--bg, #0b0c10); transition: opacity .45s ease, visibility .45s; }
+#splash img { width: 96px; height: 96px; border-radius: 24px; animation: beat 1.1s ease-in-out infinite; box-shadow: 0 16px 50px -12px rgba(255, 77, 98, .55); }
+#splash b { font-size: 24px; letter-spacing: .02em; }
+#splash.out { opacity: 0; visibility: hidden; }
+@keyframes beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+/* Ecualizador pequeño en la tarjeta que está sonando */
+.eqmini { position: absolute; left: 8px; bottom: 8px; display: none; align-items: flex-end; gap: 2px; height: 16px; padding: 5px 6px; border-radius: 8px; background: rgba(0, 0, 0, .55); box-sizing: content-box; }
+.eqmini i { width: 3px; height: 100%; border-radius: 2px; background: var(--accent); transform-origin: bottom; transform: scaleY(.3); }
+.card.cur .eqmini { display: flex; }
+body.playing .card.cur .eqmini i { animation: bar 1s ease-in-out infinite; }
+.eqmini i:nth-child(2) { animation-delay: -.35s !important; animation-duration: .8s !important; } .eqmini i:nth-child(3) { animation-delay: -.7s !important; animation-duration: 1.15s !important; }
+.card .thumb { position: relative; }
+.card.cur .t { color: var(--accent); }
+
+/* Estados vacíos con dibujo */
+#libBody > .hint { text-align: center; padding: 50px 20px 20px; }
+#libBody > .hint::before { content: ''; display: block; width: 96px; height: 96px; margin: 0 auto 14px; opacity: .55;
+  background: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96' fill='none' stroke='%239ea3b3' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M36 70V26l38-8v42'/%3E%3Ccircle cx='27' cy='70' r='9'/%3E%3Ccircle cx='65' cy='60' r='9'/%3E%3C/svg%3E"); }
+
+/* ---- Solo con estilo (body.fx) ---- */
+/* Tarjetas: esquinas amplias, la carátula sube un poco al tocarla */
+body.fx .card .thumb { border-radius: 18px; box-shadow: 0 14px 30px -18px hsl(var(--h) 70% 40% / .8); transition: transform .25s cubic-bezier(.2, .8, .2, 1), box-shadow .25s; }
+body.fx .card:hover .thumb { transform: translateY(-3px); }
+body.fx .card.cur .thumb { box-shadow: 0 0 0 2px var(--accent), 0 16px 34px -16px rgba(var(--ar), .9); }
+body.fx .shelf { scroll-snap-type: x mandatory; scroll-padding-left: 2px; }
+body.fx .shelf .card { scroll-snap-align: start; }
+
+/* Cambio de página: se desliza un poco más */
+body.fx #view.in { animation: enter .42s cubic-bezier(.2, .8, .2, 1) both; }
+
+/* Reproduciendo: fondo con el color de la carátula, carátula que respira, barra más gruesa */
+body.fx .np { background: radial-gradient(120% 60% at 50% 0%, hsl(var(--h) 70% 34% / .75), transparent 72%), radial-gradient(90% 50% at 50% 105%, hsl(calc(var(--h) + 40) 70% 30% / .45), transparent 70%), var(--bg); }
+body.fx .np-art { transition: transform .5s cubic-bezier(.2, .8, .2, 1), box-shadow .5s; transform: scale(.88); }
+body.fx.playing .np-art { transform: scale(1); }
+body.fx #npProgress { height: 34px; background-size: 100% 8px; }
+body.fx #npProgress::-webkit-slider-thumb { width: 20px; height: 20px; }
+.np::before { content: ''; align-self: center; width: 44px; height: 5px; border-radius: 3px; background: rgba(var(--w, 255, 255, 255), .25); flex: none; margin-bottom: 4px; }
+
+/* Barra del reproductor: se ve «de cristal» sobre el contenido */
+body.fx #bar { -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); }
+
+/* Menú de pestañas: el icono activo se destaca */
+body.fx #nav button .ico { transition: transform .25s cubic-bezier(.3, 1.5, .5, 1); }
+body.fx #nav button.on .ico { transform: translateY(-2px) scale(1.12); color: var(--accent); }
+
+/* Reducir movimiento */
+@media (prefers-reduced-motion: reduce) {
+  #splash img, .eqmini i { animation: none !important; }
+  body.fx .np-art, body.fx .card .thumb, body.fx #nav button .ico { transition: none; }
+}

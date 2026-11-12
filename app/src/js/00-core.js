@@ -24,7 +24,7 @@ var LS = globalThis.LS = globalThis.LS || {};
     ['nsound', 'Nsound', '#0b0c10', '#ff4d62'], ['neon', 'Neón', '#07060d', '#ff2bd6'],
     ['oceano', 'Océano', '#05111b', '#2dd4bf'], ['atardecer', 'Atardecer', '#130b0d', '#ff8a3d'],
     ['amoled', 'AMOLED', '#000000', '#ff4d62'], ['claro', 'Claro', '#f4f5f8', '#e11d48'],
-    ['clasico', 'Clásico', '#121214', '#ff6b6b'],
+    ['clasico', 'Clásico', '#121214', '#ff6b6b'], ['auto', 'Automático', '#0b0c10', '#8b5cf6'],
   ];
   LS.SHELVES = [
     { title: 'Eventos del año', queries: ['La Velada del Año', 'Kings League resumen'] },

@@ -26,5 +26,6 @@ const html = readFileSync(join(src, 'index.template.html'), 'utf8')
   .replaceAll('<!--LOGO-->', () => logo);
 
 writeFileSync(join(dist, 'index.html'), html);
+writeFileSync(join(dist, 'sw.js'), readFileSync(join(src, 'sw.js'), 'utf8'));
 writeFileSync(join(dist, 'eq.js'), readFileSync(join(src, 'eq.js'), 'utf8'));
 console.log(`dist/index.html ${(html.length / 1024).toFixed(0)} KB · dist/eq.js`);

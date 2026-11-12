@@ -782,7 +782,15 @@ public sealed partial class MainWindow : Window
 
     private void Scope_Click(object sender, RoutedEventArgs e)
     {
-        _scope = (string)((Button)sender).Tag;
+        var tag = (string)((Button)sender).Tag;
+        // En Inicio, «Música» y «Vídeos» llevan directamente a su apartado
+        if (_kind == "all" && tag is "track" or "video"
+            && Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => i.Tag as string == tag) is { } target)
+        {
+            Nav.SelectedItem = target;
+            return;
+        }
+        _scope = tag;
         ApplyFilter();
         _ = SearchYouTubeAsync(Search.Text);
     }

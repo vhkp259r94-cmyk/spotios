@@ -15,13 +15,20 @@
   const store = LS.createStores(safeStorage());
 
   // Estilo de la interfaz: «clasico» sin efectos; el resto activa body.fx y la paleta (data-theme)
+  const darkMq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   function applyLook(id) {
+    const chosen = id;
+    if (id === 'auto') id = darkMq && !darkMq.matches ? 'claro' : 'nsound';       // sigue al sistema: claro de día, oscuro de noche
+    applyLook.chosen = chosen;
     const look = LS.LOOKS.find((l) => l[0] === id) || LS.LOOKS[0];
     document.body.classList.toggle('fx', look[0] !== 'clasico');
     if (look[0] === 'clasico') delete document.body.dataset.theme; else document.body.dataset.theme = look[0];
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', look[2]);
+    document.documentElement.style.backgroundColor = look[2];
   }
+
+  if (darkMq && darkMq.addEventListener) darkMq.addEventListener('change', () => { if (applyLook.chosen === 'auto') applyLook('auto'); });
 
   // ---------- Estado ----------
   LS.paintIcons();
@@ -105,15 +112,51 @@
 
   // ---------- Tarjetas ----------
   function card(it, listId, shape, idx) {
-    return `<button class="card ${shape}" style="--i:${Math.min(idx || 0, 12)}" data-act="play" data-key="${esc(it.key)}" data-list="${esc(listId)}">
+    return `<button class="card ${shape}${S.now && S.now.key === it.key ? ' cur' : ''}" style="--i:${Math.min(idx || 0, 12)}" data-act="play" data-key="${esc(it.key)}" data-list="${esc(listId)}">
       <div class="thumb" style="--h:${hue(it.id)}">${it.thumb ? `<img loading="lazy" alt="" src="${esc(it.thumb)}" onerror="this.remove()">` : ''}
-      ${it.duration > 0 ? `<span class="dur">${LS.formatTime(it.duration)}</span>` : (it.src === 'yt' ? '<span class="dur">EN DIRECTO</span>' : '')}<span class="play" aria-hidden="true">${LS.icon('play')}</span></div>
+      ${it.duration > 0 ? `<span class="dur">${LS.formatTime(it.duration)}</span>` : (it.src === 'yt' ? '<span class="dur">EN DIRECTO</span>' : '')}<span class="eqmini" aria-hidden="true"><i></i><i></i><i></i></span><span class="play" aria-hidden="true">${LS.icon('play')}</span></div>
       <div class="t">${esc(it.title)}</div><div class="s">${esc(it.sub)}</div></button>`;
   }
 
   function setList(id, items) { lists.set(id, items.map((i) => i.key)); return items; }
   const grid = (id, items, shape) => `<div class="grid ${shape}">${items.map((i, n) => card(i, id, shape, n)).join('')}</div>`;
   const skeleton = (n) => `<div class="grid video">${Array.from({ length: n || 8 }, () => '<div class="skel"></div>').join('')}</div>`;
+
+
+  // ---------- Últimas escuchadas (solo en este dispositivo) ----------
+  const recentStore = safeStorage();
+  function recentList() { try { const a = JSON.parse(recentStore.getItem('ls.recent') || '[]'); return Array.isArray(a) ? a.filter((x) => x && x.id && x.src) : []; } catch (e) { return []; } }
+  function recentPush(it) {
+    if (!it || it.src === 'cat') return;
+    const slim = { src: it.src, id: it.id, title: it.title, artist: it.artist, sub: it.sub, duration: it.duration, thumb: it.thumb, kind: it.kind };
+    try { recentStore.setItem('ls.recent', JSON.stringify([slim, ...recentList().filter((x) => x.src + ':' + x.id !== it.src + ':' + it.id)].slice(0, 12))); } catch (e) { /* sin almacenamiento */ }
+  }
+
+  // Color de la carátula (si el navegador deja leerla); si no, un tono estable según la canción
+  function artHue(url, id, apply) {
+    apply(hue(id));
+    if (!url) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas'); c.width = c.height = 16;
+        const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, 16, 16);
+        const d = g.getImageData(0, 0, 16, 16).data; let best = 0, bh = null;
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i] / 255, gr = d[i + 1] / 255, b = d[i + 2] / 255, mx = Math.max(r, gr, b), mn = Math.min(r, gr, b), sat = mx ? (mx - mn) / mx : 0;
+          if (sat * mx > best && mx - mn > 0.08) {
+            best = sat * mx;
+            const dl = mx - mn;
+            let h = mx === r ? ((gr - b) / dl) % 6 : mx === gr ? (b - r) / dl + 2 : (r - gr) / dl + 4;
+            bh = Math.round((h * 60 + 360) % 360);
+          }
+        }
+        if (bh !== null) apply(bh);
+      } catch (e) { /* imagen de otro origen sin permiso: se queda el tono por defecto */ }
+    };
+    img.src = url;
+  }
 
   // ---------- Navegación ----------
   const PAGES = ['home', 'music', 'videos', 'library', 'settings'];
@@ -148,13 +191,17 @@
   // ---------- Inicio ----------
   async function renderHome(v, id) {
     const q = S.query, sc = S.scope;
-    v.innerHTML = `<h1>Inicio</h1>${chips([['all', 'Todo'], ['track', 'Música'], ['video', 'Vídeos']], sc, 'scope')}
+    const hr = new Date().getHours(), greet = hr < 6 ? 'Buenas noches' : hr < 13 ? 'Buenos días' : hr < 21 ? 'Buenas tardes' : 'Buenas noches';
+    v.innerHTML = `<h1>${greet}</h1>${chips([['all', 'Todo'], ['track', 'Música'], ['video', 'Vídeos']], sc, 'scope')}
       ${q ? `<p class="hint">${sc === 'track' ? 'Canciones' : sc === 'video' ? 'Vídeos' : 'Resultados'} para «${esc(q)}».</p>` : ''}
       <section id="hero" class="hero" hidden></section>
       <section><h2 id="hitsTitle">${q ? 'Resultados en YouTube' : sc === 'track' ? 'Canciones del momento' : sc === 'video' ? 'Videoclips del momento' : 'Éxitos del momento'}</h2>
       <div id="hits">${skeleton()}</div></section>
+      <section id="recentRow" hidden><h2>Seguir escuchando</h2><div id="recentGrid"></div></section>
       <section id="savedRow" hidden><h2>De tu biblioteca</h2><div id="savedGrid"></div></section>`;
     if (!q) { renderHero(); setTimeout(() => loadReleases(id), 1500); }
+    const recent = recentList().map(savedItem);
+    if (!q && recent.length) { $('#recentRow').hidden = false; $('#recentGrid').innerHTML = `<div class="shelf">${setList('home-recent', recent) && recent.map((i, n) => card(i, 'home-recent', 'video', n)).join('')}</div>`; }
     const saved = store.library.items().slice(0, 8).map(savedItem);
     if (!q && saved.length) { $('#savedRow').hidden = false; $('#savedGrid').innerHTML = grid(setList('home-saved', saved) && 'home-saved', saved, 'video'); }
     await showResults('#hits', id, 'home');
@@ -415,7 +462,10 @@
     const it = S.now;
     if (!it) return;
     document.body.classList.add('has-track');
-    document.body.style.setProperty('--h', hue(it.id));
+    artHue(it.thumb, it.id, (h) => document.body.style.setProperty('--h', h));
+    recentPush(it);
+    $$('.card.cur').forEach((c) => c.classList.remove('cur'));
+    $$('.card[data-key]').forEach((c) => { if (c.dataset.key === it.key) c.classList.add('cur'); });
     updateNp();
     $('#nowTitle').textContent = it.title;
     $('#nowSub').textContent = it.sub + (it.src === 'yt' ? ' · YouTube' : '');
@@ -583,8 +633,10 @@
     if (!it) return;
     if (!S.now || !S.queue.length) { play(key, ''); toast('Reproduciendo «' + it.title + '»'); return; }
     applyQueue(LS.queueAdd(S.queue, S.index, it, mode));
+    buzz();
     toast(mode === 'next' ? 'Sonará a continuación: ' + it.title : 'Añadida a la cola: ' + it.title);
-    if (!$('#qp').hidden) renderQueue();
+    const qp = $('#qp');
+    if (qp && !qp.hidden) renderQueue();
   }
   function sheet(id) {
     let o = $('#' + id);
@@ -656,7 +708,11 @@
     const d = t.dataset;
     if (d.look) { store.settings.set({ look: d.look }); applyLook(d.look); if (S.page === 'settings') render(); return; }
     if (d.page) { go('#/' + d.page); return; }
-    if (d.scope) { S.scope = d.scope; render(); return; }
+    if (d.scope) {
+      if (S.page === 'home' && d.scope === 'track') { go('#/music'); return; }     // Música y Vídeos abren su apartado directamente
+      if (S.page === 'home' && d.scope === 'video') { go('#/videos'); return; }
+      S.scope = d.scope; render(); return;
+    }
     if (d.genre) { S.genre = d.genre; render(); return; }
     if (d.sub) { go(d.sub === 'saved' ? '#/library' : d.sub === 'downloads' ? '#/library/downloads' : '#/library/pl/' + d.sub.slice(3)); return; }
     switch (d.act) {
@@ -737,6 +793,31 @@
   // ---------- Arranque ----------
   Player.init();
   const s0 = store.settings.get();
+
+  // Deslizar hacia abajo cierra «Reproduciendo» (el panel sigue al dedo)
+  (function () {
+    const np = $('#np'); let y0 = 0, dy = 0, on = false;
+    np.addEventListener('touchstart', (e) => { if (np.scrollTop > 0 || e.target.closest('input,button')) return; y0 = e.touches[0].clientY; dy = 0; on = true; }, { passive: true });
+    np.addEventListener('touchmove', (e) => {
+      if (!on) return;
+      dy = e.touches[0].clientY - y0;
+      if (dy > 0) { np.style.transition = 'none'; np.style.transform = `translateY(${dy}px)`; }
+    }, { passive: true });
+    const end = () => {
+      if (!on) return; on = false;
+      np.style.transition = ''; np.style.transform = '';
+      if (dy > 110) { buzz(); closeNp(); }
+    };
+    np.addEventListener('touchend', end); np.addEventListener('touchcancel', end);
+  })();
+
+  // Pantalla de arranque
+  window.addEventListener('load', () => { const sp = $('#splash'); if (!sp) return; setTimeout(() => { sp.classList.add('out'); setTimeout(() => sp.remove(), 500); }, 450); });
+
+  // Funciona sin conexión (solo en un navegador; las apps ya llevan la interfaz dentro)
+  if (Native.platform === 'web' && 'serviceWorker' in navigator && /^https:|^http:\/\/localhost/.test(location.href)) {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* sin soporte: no pasa nada */ });
+  }
   applyLook(s0.look);
   $('#volume').value = s0.volume;
   Player.setVolume(s0.volume);
