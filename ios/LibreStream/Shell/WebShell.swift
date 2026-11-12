@@ -40,6 +40,7 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
         config.mediaTypesRequiringUserActionForPlayback = []
         config.allowsPictureInPictureMediaPlayback = true
         config.setURLSchemeHandler(self, forURLScheme: "lsmedia")
+        nowPlaying.onCommand = { [weak self] command in self?.sendRemote(command) }
 
         let controller = config.userContentController
         controller.addScriptMessageHandler(self, contentWorld: .page, name: "native")
