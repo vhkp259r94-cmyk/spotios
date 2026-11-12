@@ -120,6 +120,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          cd "$GITHUB_WORKSPACE"      # el paso se ejecuta dentro de «ios»: la ruta del IPA es desde la raíz
           IPA="${{ steps.pkg.outputs.ipa }}"
           NAME=$(basename "$IPA")
           SHA=$(cut -d' ' -f1 "$IPA.sha256")
