@@ -402,9 +402,7 @@
         <div class="eq" id="eqBands">${s.eqBands.map((b, i) => `<label><span>${LS.EQ_LABELS[i]}</span><input type="range" min="-12" max="12" step="1" value="${b}" data-band="${i}"><output>${fmtGain(b)}</output></label>`).join('')}</div>
         <p id="eqStatus" class="hint"></p>
         <p class="note">Actúa sobre el sonido de YouTube dentro de la app. Los vídeos del catálogo libre no admiten ecualizador.</p></section>
-      <section class="panel"><h2>Privacidad</h2>
-        <label class="switch"><input type="checkbox" id="adOn" ${s.adBlock ? 'checked' : ''}> Bloquear anuncios y rastreadores</label>
-        <p class="note">Corta las conexiones a servidores de publicidad conocidos. Los anuncios que YouTube sirve desde sus propios servidores de vídeo pueden seguir apareciendo.</p></section>
+      <!-- Privacidad (bloqueo de anuncios): oculto en la interfaz; el bloqueo sigue activo por defecto -->
       <section class="panel"><h2>Acerca de</h2><p class="note">Nsound es gratuita, de código abierto y sin suscripciones. YouTube se reproduce con su reproductor oficial y no se descarga. Letras: LRCLIB. Plataforma: ${esc(Native.platform)}.</p></section>`;
     refreshEqStatus();
   }

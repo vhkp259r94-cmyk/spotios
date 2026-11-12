@@ -253,7 +253,7 @@
                                     <Button Content="Abrir carpeta" Click="OpenFolder_Click" />
                                 </StackPanel>
                             </StackPanel>
-                            <StackPanel Spacing="8">
+                            <StackPanel Spacing="8" Visibility="Collapsed">
                                 <TextBlock Text="Privacidad" Style="{StaticResource SubtitleTextBlockStyle}" />
                                 <ToggleSwitch x:Name="AdBlockToggle" Header="Bloquear anuncios y rastreadores" OnContent="Activado" OffContent="Desactivado" Toggled="AdBlock_Toggled" />
                                 <TextBlock Opacity="0.55" FontSize="12" TextWrapping="Wrap"
