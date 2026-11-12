@@ -20,6 +20,12 @@ h2{margin:40px 0 12px;font-size:1.4rem}
 ol{padding-left:22px}li{margin:6px 0}code{background:var(--card);border:1px solid var(--ln);border-radius:6px;padding:1px 6px}
 .warn{background:#f59e0b1f;border:1px solid #f59e0b66;border-radius:12px;padding:12px 14px;margin:12px 0}
 details{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:10px 14px;margin:8px 0}summary{cursor:pointer;font-weight:600}
+.shots{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 12px;scroll-snap-type:x mandatory}
+.shots figure{margin:0;flex:0 0 210px;scroll-snap-align:start}
+.shots img{width:100%;border-radius:20px;border:1px solid var(--ln);box-shadow:0 18px 40px -22px #8b5cf6aa;display:block}
+.shots figcaption{color:var(--mut);font-size:.88rem;text-align:center;margin-top:8px}
+.steps li b{color:var(--tx)}
+.tag{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:999px;background:var(--card);border:1px solid var(--ln);color:var(--mut);margin-left:6px;vertical-align:2px}
 a{color:var(--ac2)}footer{color:var(--mut);font-size:.88rem;text-align:center;padding:40px 0}
 </style></head><body><div class="w">
 <header><img src="logo.png" alt="Logo de Nsound"><h1>Nsound</h1>
@@ -37,8 +43,18 @@ Las descargas de los instaladores estarán disponibles <b>próximamente</b>; mie
 <div class="card"><b>Importar listas</b><span>Una canción, una lista pública o un artista desde YouTube, Spotify, SoundCloud, Deezer o Apple Music.</span></div>
 <div class="card"><b>Letra sincronizada</b><span>Con LRCLIB, una base de datos abierta.</span></div>
 <div class="card"><b>Ecualizador</b><span>10 bandas y ajustes preestablecidos.</span></div>
-<div class="card"><b>7 estilos</b><span>Nsound, Neón, Océano, Atardecer, Amoled, Claro y Clásico.</span></div>
+<div class="card"><b>8 estilos</b><span>Nsound, Neón, Océano, Atardecer, Amoled, Claro, Clásico y Automático (claro u oscuro según tu móvil).</span></div>
+<div class="card"><b>Cola de reproducción</b><span>Mantén pulsada una canción para ponerla a continuación o al final. Reordena, quita o vacía.</span></div>
+<div class="card"><b>Pantalla de bloqueo</b><span>Carátula, artista y botones de anterior y siguiente, como un reproductor de música.</span></div>
+<div class="card"><b>Seguir escuchando</b><span>Lo último que sonó, en Inicio. Se guarda solo en tu dispositivo.</span></div>
 <div class="card"><b>Sin rastreo de anuncios</b><span>Bloquea servidores de anuncios conocidos.</span></div>
+</div>
+
+<h2>Así se ve</h2>
+<div class="shots">
+<figure><img src="img/inicio.jpg" alt="Pantalla de inicio con las novedades" loading="lazy"><figcaption>Inicio y novedades</figcaption></figure>
+<figure><img src="img/musica.jpg" alt="Pantalla de música por géneros" loading="lazy"><figcaption>Música por géneros</figcaption></figure>
+<figure><img src="img/reproduciendo.jpg" alt="Pantalla Reproduciendo" loading="lazy"><figcaption>Reproduciendo</figcaption></figure>
 </div>
 
 <h2>Cómo instalarlo</h2>
@@ -68,6 +84,23 @@ Las descargas de los instaladores estarán disponibles <b>próximamente</b>; mie
 <li>En el iPhone: <b>Ajustes → General → VPN y gestión de dispositivos →</b> tu Apple ID <b>→ Confiar</b>.</li>
 <li>Activa <b>Ajustes → Privacidad y seguridad → Modo desarrollador</b> y reinicia.</li>
 <li>Abre Nsound. Con un Apple ID gratuito la app caduca a los 7 días y hay que reinstalarla.</li></ol></div>
+
+<h2>Cómo se usa</h2>
+<ol class="steps">
+<li><b>Buscar:</b> escribe arriba el nombre de una canción, un artista o un vídeo.</li>
+<li><b>Música y Vídeos:</b> cada apartado muestra solo lo suyo. En <i>Música</i> salen solo canciones de estudio; en <i>Vídeos</i>, solo vídeos.</li>
+<li><b>Guardar:</b> toca el corazón para guardar en tu biblioteca, o «+» para añadir a una lista.</li>
+<li><b>Cola:</b> mantén pulsada una tarjeta (clic derecho en el ordenador) y elige «a continuación» o «al final». Ábrela con «Cola» en la pantalla Reproduciendo.</li>
+<li><b>Importar una lista:</b> Biblioteca → Importar. Pega el enlace de una canción, una lista pública o un artista de YouTube, Spotify, Deezer, Apple Music o SoundCloud.</li>
+<li><b>Estilo:</b> Ajustes → Aspecto. «Automático» sigue al modo claro u oscuro de tu móvil.</li>
+</ol>
+
+<h2>Si algo falla</h2>
+<details><summary>No carga la búsqueda o salen resultados vacíos</summary>Comprueba la conexión. YouTube puede limitar las peticiones durante unos minutos: espera y vuelve a probar.</details>
+<details><summary>El botón Atrás de Android no cierra «Reproduciendo»</summary>Actualiza a la última versión: ya cierra primero Reproduciendo, la cola y los menús.</details>
+<details><summary>En el iPhone la app caduca a los 7 días</summary>Es una limitación de Apple con los ID gratuitos. Hay que volver a instalarla con Sideloadly o AltStore (este último la renueva solo).</details>
+<details><summary>Windows dice «protegió su PC»</summary>Es normal: la app no está firmada. Pulsa «Más información» y luego «Ejecutar de todas formas».</details>
+<details><summary>Una canción no se importa</summary>Puede que no exista en YouTube Music con ese título. Al terminar, la app muestra la lista de canciones sin encontrar.</details>
 
 <h2>Preguntas frecuentes</h2>
 <details><summary>¿Se puede descargar música o vídeo de YouTube?</summary>No. Nsound reproduce YouTube con su reproductor oficial y no extrae ni descarga contenido. Las descargas solo existen para contenido libre (Creative Commons).</details>
