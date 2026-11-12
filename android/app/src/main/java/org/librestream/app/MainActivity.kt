@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -28,6 +29,7 @@ class MainActivity : Activity() {
     private lateinit var root: FrameLayout
     private var customView: View? = null
     private var customCallback: WebChromeClient.CustomViewCallback? = null
+    private var fileCallback: ValueCallback<Array<Uri>>? = null
 
     /** Interruptor de anuncios (lo cambia la interfaz desde Ajustes). Se lee en el hilo de red del WebView. */
     @Volatile
@@ -102,6 +104,17 @@ class MainActivity : Activity() {
                 web.visibility = View.GONE
             }
 
+            // Selector de archivos del sistema (importar una lista desde un CSV, JSON o TXT)
+            override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
+                fileCallback?.onReceiveValue(null)
+                fileCallback = callback
+                return try {
+                    @Suppress("DEPRECATION")
+                    startActivityForResult(params.createIntent(), FILE_REQUEST)
+                    true
+                } catch (e: Exception) { fileCallback = null; false }
+            }
+
             override fun onHideCustomView() {
                 customView?.let { root.removeView(it) }
                 customView = null
@@ -133,6 +146,17 @@ class MainActivity : Activity() {
         }
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == FILE_REQUEST) {
+            fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data))
+            fileCallback = null
+            return
+        }
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
     override fun onDestroy() {
         PlaybackService.listener = null
         PlaybackService.stop(this)
@@ -143,5 +167,6 @@ class MainActivity : Activity() {
     companion object {
         const val ASSET_HOST = "appassets.androidplatform.net"
         private const val BACKGROUND = 0xFF121214.toInt()
+        private const val FILE_REQUEST = 4021
     }
 }
