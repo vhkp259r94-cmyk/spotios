@@ -1,0 +1,9 @@
+{
+  "name": "Nsound (pruebas)",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "postStartCommand": "node app/build.mjs && (nohup node app/dev/server.mjs 5173 > /tmp/nsound.log 2>&1 &)",
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": { "label": "Nsound (pruebas)", "onAutoForward": "openBrowser" }
+  }
+}
