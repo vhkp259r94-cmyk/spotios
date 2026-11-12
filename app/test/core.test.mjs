@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 require('../src/js/00-core.js');
 require('../src/js/00-import.js');
+require('../src/js/00-queue.js');
 require('../src/js/01-stores.js');
 const LS = globalThis.LS;
 
@@ -310,4 +311,22 @@ test('importar: elegir la canción correcta', () => {
   const res = [{ title: 'Loser (Live)', channel: 'Otro grupo' }, { title: 'Loser', channel: 'Tame Impala' }];
   assert.equal(LS.pickImportMatch({ title: 'Loser', artist: 'Tame Impala' }, res), res[1]);
   assert.equal(LS.pickImportMatch({ title: 'Inexistente', artist: 'Nadie' }, res), null);
+});
+
+test('cola: añadir, quitar, mover y vaciar', () => {
+  const k = (n) => ({ key: 'k' + n });
+  const q = [k(1), k(2), k(3)];
+  let r = LS.queueAdd(q, 0, k(9), 'next');
+  assert.deepEqual(r.queue.map((x) => x.key), ['k1', 'k9', 'k2', 'k3']); assert.equal(r.index, 0);
+  r = LS.queueAdd(r.queue, 0, k(9), 'end');                       // ya estaba: se mueve, sin duplicados
+  assert.deepEqual(r.queue.map((x) => x.key), ['k1', 'k2', 'k3', 'k9']);
+  r = LS.queueAdd(q, 1, k(1), 'next');                            // una anterior que se vuelve a pedir: pasa a continuación
+  assert.deepEqual(r.queue.map((x) => x.key), ['k2', 'k1', 'k3']); assert.equal(r.index, 0);
+  assert.deepEqual(LS.queueAdd(q, 1, k(2), 'end').queue.map((x) => x.key), ['k1', 'k2', 'k3']);   // la actual no se duplica
+  assert.deepEqual(LS.queueAdd([], -1, k(5), 'next'), { queue: [k(5)], index: 0 });
+  r = LS.queueRemove(q, 1, 0); assert.deepEqual([r.queue.length, r.index], [2, 0]);   // quitar una anterior reajusta el índice
+  assert.equal(LS.queueRemove(q, 1, 1).queue.length, 3);          // la actual no se quita
+  assert.deepEqual(LS.queueMove(q, 0, 2, -1).queue.map((x) => x.key), ['k1', 'k3', 'k2']);
+  assert.deepEqual(LS.queueMove(q, 0, 1, -1).queue.map((x) => x.key), ['k1', 'k2', 'k3']);        // no pasa por encima de la actual
+  assert.deepEqual(LS.queueClearUpcoming(q, 1).queue.map((x) => x.key), ['k1', 'k2']);
 });

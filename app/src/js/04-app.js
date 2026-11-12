@@ -469,6 +469,7 @@
   $('#npPlay').onclick = () => { buzz(); Player.toggle(); };
   $('#npHeart').onclick = toggleHeart;
   $('#npAdd').onclick = (e) => { e.stopPropagation(); openAddMenu(); };
+  $('#npQueue').onclick = () => openQueue();
   $('#npLyrics').onclick = () => { closeNp(); $('#lyricsBtn').click(); };
   $('#npVideo').onclick = () => { closeNp(); if (S.now) showVideo(true); };
   const npp = $('#npProgress');
@@ -573,6 +574,63 @@
     } finally { importing.busy = false; btn.disabled = false; }
   }
 
+
+  // ---------- Cola de reproducción ----------
+  function applyQueue(r) { S.queue = r.queue; S.index = r.index; }
+  function queueIt(key, mode) {
+    const it = reg.get(key);
+    if (!it) return;
+    if (!S.now || !S.queue.length) { play(key, ''); toast('Reproduciendo «' + it.title + '»'); return; }
+    applyQueue(LS.queueAdd(S.queue, S.index, it, mode));
+    toast(mode === 'next' ? 'Sonará a continuación: ' + it.title : 'Añadida a la cola: ' + it.title);
+    if (!$('#qp').hidden) renderQueue();
+  }
+  function sheet(id) {
+    let o = $('#' + id);
+    if (!o) { o = document.createElement('div'); o.id = id; o.className = 'imp'; o.hidden = true; document.body.appendChild(o); }
+    return o;
+  }
+  function openCardMenu(key) {
+    const it = reg.get(key);
+    if (!it) return;
+    const o = sheet('qm');
+    o.innerHTML = `<div class="imp-box" role="dialog" aria-modal="true"><h2>${esc(it.title)}</h2><p class="imp-sub">${esc(it.sub)}</p>
+      <div class="imp-btns" style="flex-direction:column"><button data-act="qnext" data-key="${esc(key)}">Reproducir a continuación</button>
+      <button data-act="qend" data-key="${esc(key)}">Añadir al final de la cola</button><button data-act="qmclose">Cancelar</button></div></div>`;
+    o.hidden = false;
+    o.onclick = (e) => { if (e.target === o) o.hidden = true; };
+  }
+  function openQueue() {
+    const o = sheet('qp');
+    o.hidden = false;
+    o.onclick = (e) => { if (e.target === o) o.hidden = true; };
+    o.onkeydown = (e) => { if (e.key === 'Escape') o.hidden = true; };
+    renderQueue();
+  }
+  function renderQueue() {
+    const o = $('#qp');
+    const cur = S.queue[S.index];
+    const up = S.queue.map((it, i) => [it, i]).filter(([, i]) => i > S.index);
+    const row = (it, i) => `<li><button class="q-main" data-act="qjump" data-i="${i}"><b>${esc(it.title)}</b><span>${esc(it.sub)}</span></button>
+      <button class="q-b" aria-label="Subir" data-act="qup" data-i="${i}" ${i <= S.index + 1 ? 'disabled' : ''}>▲</button>
+      <button class="q-b" aria-label="Bajar" data-act="qdown" data-i="${i}" ${i >= S.queue.length - 1 ? 'disabled' : ''}>▼</button>
+      <button class="q-b" aria-label="Quitar" data-act="qdel" data-i="${i}">✕</button></li>`;
+    o.innerHTML = `<div class="imp-box" role="dialog" aria-modal="true" aria-label="Cola de reproducción"><h2>Cola</h2>
+      <p class="imp-sub">${cur ? 'Suena ahora: ' + esc(cur.title) : 'No hay nada sonando.'}</p>
+      ${up.length ? `<ul class="q-list">${up.map(([it, i]) => row(it, i)).join('')}</ul>` : '<p class="imp-note">No hay más canciones en la cola. Mantén pulsada una tarjeta (o clic derecho) para añadirla.</p>'}
+      <div class="imp-btns">${up.length ? '<button data-act="qclear">Vaciar</button>' : ''}<button class="primary" data-act="qpclose">Cerrar</button></div></div>`;
+  }
+  // Mantener pulsada una tarjeta (o clic derecho) abre su menú de cola
+  let pressTimer = 0, suppressClick = 0;
+  document.addEventListener('contextmenu', (e) => { const c = e.target.closest && e.target.closest('.card[data-key]'); if (c) { e.preventDefault(); openCardMenu(c.dataset.key); } });
+  document.addEventListener('touchstart', (e) => {
+    const c = e.target.closest && e.target.closest('.card[data-key]');
+    clearTimeout(pressTimer);
+    if (c) pressTimer = setTimeout(() => { suppressClick = Date.now() + 600; openCardMenu(c.dataset.key); }, 550);
+  }, { passive: true });
+  ['touchend', 'touchmove', 'touchcancel'].forEach((ev) => document.addEventListener(ev, () => clearTimeout(pressTimer), { passive: true }));
+  document.addEventListener('click', (e) => { if (Date.now() < suppressClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+
   // ---------- Listas ----------
   function newList(addCurrent) {
     const name = prompt('Nombre de la lista');
@@ -604,6 +662,14 @@
       case 'play': play(d.key, d.list); break;
       case 'playall': { const k = lists.get('lib') || []; if (k.length) play(k[0], 'lib'); break; }
       case 'newlist': newList(false); break;
+      case 'qnext': queueIt(d.key, 'next'); $('#qm').hidden = true; break;
+      case 'qend': queueIt(d.key, 'end'); $('#qm').hidden = true; break;
+      case 'qmclose': $('#qm').hidden = true; break;
+      case 'qpclose': $('#qp').hidden = true; break;
+      case 'qjump': S.index = Number(d.i); S.skips = 0; start(); renderQueue(); break;
+      case 'qup': case 'qdown': applyQueue(LS.queueMove(S.queue, S.index, Number(d.i), d.act === 'qup' ? -1 : 1)); renderQueue(); break;
+      case 'qdel': applyQueue(LS.queueRemove(S.queue, S.index, Number(d.i))); renderQueue(); break;
+      case 'qclear': applyQueue(LS.queueClearUpcoming(S.queue, S.index)); renderQueue(); break;
       case 'import': openImport(); break;
       case 'importgo': runImport(); break;
       case 'importclose': closeImport(); break;

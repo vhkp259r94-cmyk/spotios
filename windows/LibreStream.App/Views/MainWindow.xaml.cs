@@ -437,6 +437,99 @@ public sealed partial class MainWindow : Window
         }
     }
 
+
+    // ===================== Cola de reproducción =====================
+
+    private static bool SameCard(MediaCard a, MediaCard b) => a.Source == b.Source && a.Id == b.Id;
+
+    private void QueueCard(MediaCard card, bool next)
+    {
+        if (!card.IsPlayable) return;
+        if (_now is null || _queue.Count == 0) { Play(card, [card]); ShowStatus(null); return; }
+        if (_mode != Mode.YouTube || card.YouTubeId is null)
+        {
+            ShowStatus("La cola solo admite canciones y vídeos de YouTube mientras suena YouTube.");
+            return;
+        }
+        QueueOps.Add(_queue, ref _index, card, next, SameCard);
+        ShowStatus(next ? $"Sonará a continuación: {card.Title}" : $"Añadida a la cola: {card.Title}");
+    }
+
+    private void Card_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not MediaCard card) return;
+        var menu = new MenuFlyout();
+        var next = new MenuFlyoutItem { Text = "Reproducir a continuación", Icon = new SymbolIcon(Symbol.Play) };
+        next.Click += (_, _) => QueueCard(card, true);
+        var end = new MenuFlyoutItem { Text = "Añadir al final de la cola", Icon = new SymbolIcon(Symbol.Add) };
+        end.Click += (_, _) => QueueCard(card, false);
+        menu.Items.Add(next);
+        menu.Items.Add(end);
+        menu.ShowAt((FrameworkElement)sender, e.GetPosition((FrameworkElement)sender));
+        e.Handled = true;
+    }
+
+    private Flyout? _queueFlyout;
+
+    private void Queue_Click(object sender, RoutedEventArgs e)
+    {
+        _queueFlyout = new Flyout();
+        BuildQueueFlyout();
+        _queueFlyout.ShowAt((FrameworkElement)sender);
+    }
+
+    private void BuildQueueFlyout()
+    {
+        if (_queueFlyout is null) return;
+        var panel = new StackPanel { Spacing = 6, MinWidth = 340, MaxWidth = 420 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = _index >= 0 && _index < _queue.Count ? $"Suena ahora: {_queue[_index].Title}" : "No hay nada sonando.",
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        var list = new StackPanel { Spacing = 2 };
+        for (var i = _index + 1; i < _queue.Count; i++)
+        {
+            var pos = i;
+            var row = new Grid { ColumnSpacing = 4 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            for (var c = 0; c < 3; c++) row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var jump = new Button { HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0) };
+            jump.Content = new StackPanel
+            {
+                Children =
+                {
+                    new TextBlock { Text = _queue[pos].Title, TextTrimming = TextTrimming.CharacterEllipsis },
+                    new TextBlock { Text = _queue[pos].Subtitle, FontSize = 12, Opacity = 0.6, TextTrimming = TextTrimming.CharacterEllipsis },
+                },
+            };
+            jump.Click += (_, _) => { _index = pos; StartCurrent(); BuildQueueFlyout(); };
+            Button Small(string glyph, string name, bool enabled, Action act)
+            {
+                var b = new Button { Content = glyph, MinWidth = 36, Padding = new Thickness(4), IsEnabled = enabled };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(b, name);
+                b.Click += (_, _) => { act(); BuildQueueFlyout(); };
+                return b;
+            }
+            var up = Small("▲", "Subir", pos > _index + 1, () => QueueOps.Move(_queue, _index, pos, -1));
+            var down = Small("▼", "Bajar", pos < _queue.Count - 1, () => QueueOps.Move(_queue, _index, pos, 1));
+            var del = Small("✕", "Quitar", true, () => QueueOps.Remove(_queue, ref _index, pos));
+            Grid.SetColumn(jump, 0); Grid.SetColumn(up, 1); Grid.SetColumn(down, 2); Grid.SetColumn(del, 3);
+            row.Children.Add(jump); row.Children.Add(up); row.Children.Add(down); row.Children.Add(del);
+            list.Children.Add(row);
+        }
+        if (list.Children.Count == 0)
+            panel.Children.Add(new TextBlock { Text = "No hay más canciones en la cola. Clic derecho en una tarjeta para añadirla.", TextWrapping = TextWrapping.Wrap, Opacity = 0.65 });
+        else
+        {
+            panel.Children.Add(new ScrollViewer { MaxHeight = 320, Content = list });
+            var clear = new Button { Content = "Vaciar" };
+            clear.Click += (_, _) => { QueueOps.ClearUpcoming(_queue, _index); BuildQueueFlyout(); };
+            panel.Children.Add(clear);
+        }
+        _queueFlyout.Content = panel;
+    }
+
     // ===================== Reproducción (cola unificada) =====================
 
     private void Play(MediaCard card, List<MediaCard> list)

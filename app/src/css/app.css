@@ -212,3 +212,11 @@ body:not(.has-track) #bar .prog, body:not(.has-track) #bar .extra { display: non
 .imp-btns { display: flex; gap: 10px; } .imp-btns button { flex: 1; padding: 12px; border-radius: 12px; }
 .imp button.primary { background: var(--text); color: var(--bg); font-weight: 600; margin-top: 8px; }
 .imp-btns button[disabled] { opacity: .5; }
+
+/* Cola */
+.q-list { list-style: none; margin: 0 0 12px; padding: 0; max-height: 50vh; overflow: auto; }
+.q-list li { display: flex; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.q-main { flex: 1; min-width: 0; text-align: left; background: transparent; padding: 6px 4px; }
+.q-main b, .q-main span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-main span { color: var(--muted); font-size: 12px; }
+.q-b { min-width: 38px; min-height: 38px; padding: 0; } .q-b[disabled] { opacity: .3; }

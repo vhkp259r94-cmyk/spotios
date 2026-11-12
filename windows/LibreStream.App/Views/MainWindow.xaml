@@ -21,7 +21,7 @@
 
             <!-- Tarjeta apaisada (vídeo) -->
             <DataTemplate x:Key="VideoCard" x:DataType="local:MediaCard">
-                <Button Style="{StaticResource CardButton}" Tag="{x:Bind}" Click="Card_Click" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited">
+                <Button Style="{StaticResource CardButton}" Tag="{x:Bind}" Click="Card_Click" RightTapped="Card_RightTapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited">
                     <StackPanel Width="256" Spacing="6">
                         <Grid Height="144" CornerRadius="12" Background="{x:Bind Tile}">
                             <TextBlock Text="{x:Bind Initials}" FontSize="40" FontWeight="Bold" Opacity="0.85"
@@ -40,7 +40,7 @@
 
             <!-- Tarjeta cuadrada (música) -->
             <DataTemplate x:Key="TrackCard" x:DataType="local:MediaCard">
-                <Button Style="{StaticResource CardButton}" Tag="{x:Bind}" Click="Card_Click" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited">
+                <Button Style="{StaticResource CardButton}" Tag="{x:Bind}" Click="Card_Click" RightTapped="Card_RightTapped" PointerEntered="Card_PointerEntered" PointerExited="Card_PointerExited">
                     <StackPanel Width="160" Spacing="6">
                         <Grid Height="160" CornerRadius="12" Background="{x:Bind Tile}">
                             <TextBlock Text="{x:Bind Initials}" FontSize="44" FontWeight="Bold" Opacity="0.9"
@@ -398,6 +398,7 @@
                         <SymbolIcon Symbol="Add" />
                         <Button.Flyout><MenuFlyout x:Name="PlaylistMenu2" Opening="PlaylistMenu_Opening" /></Button.Flyout>
                     </Button>
+                    <Button Click="Queue_Click" Content="Cola" CornerRadius="14" MinWidth="56" MinHeight="46" />
                     <Button Click="NowSheetLyrics_Click" Content="Letra" CornerRadius="14" MinWidth="56" MinHeight="46" />
                     <Button Click="NowSheetVideo_Click" CornerRadius="14" MinWidth="56" MinHeight="46" AutomationProperties.Name="Mostrar vídeo"><SymbolIcon Symbol="SlideShow" /></Button>
                 </StackPanel>
