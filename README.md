@@ -4,7 +4,7 @@
 
 *Antes «LibreStream Hub». Nsound: la N de su logo (con la corona y el rayo) más «sound», sonido.*
 
-Centro de entretenimiento de código abierto, gratuito y sin suscripciones (música + vídeo).
+Reproductor personal de música y vídeo, gratuito, sin ánimo de lucro y sin suscripciones. Código visible para uso no comercial (ver [LICENSE](LICENSE)).
 El cliente iOS se distribuye como `.ipa` **sin firmar** que el usuario firma al instalar
 (Sideloadly / AltStore / TrollStore). En Windows se distribuye como `.zip` portable (x64 y ARM64), sin instalador ni firma.
 

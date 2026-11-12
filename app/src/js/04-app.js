@@ -398,7 +398,7 @@
         <p id="eqStatus" class="hint"></p>
         <p class="note">Actúa sobre el sonido de YouTube dentro de la app. Los vídeos del catálogo libre no admiten ecualizador.</p></section>
       <!-- Privacidad (bloqueo de anuncios): oculto en la interfaz; el bloqueo sigue activo por defecto -->
-      <section class="panel"><h2>Acerca de</h2><p class="note">Nsound es gratuita, de código abierto y sin suscripciones. YouTube se reproduce con su reproductor oficial y no se descarga. Letras: LRCLIB. Plataforma: ${esc(Native.platform)}.</p></section>`;
+      <section class="panel"><h2>Acerca de</h2><p class="note">Nsound es gratuita, sin ánimo de lucro y sin suscripciones; su código es visible para uso no comercial. YouTube se reproduce con su reproductor oficial y no se descarga. Letras: LRCLIB. Plataforma: ${esc(Native.platform)}.</p></section>`;
     refreshEqStatus();
   }
   const fmtGain = (n) => (n > 0 ? '+' + n : String(n));

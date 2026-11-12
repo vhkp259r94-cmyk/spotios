@@ -73,7 +73,7 @@ public static partial class LyricsService
     private static async Task<string> GetAsync(HttpClient http, string url, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.TryAddWithoutValidation("User-Agent", "LibreStream (reproductor de codigo abierto)");
+        req.Headers.TryAddWithoutValidation("User-Agent", "Nsound (reproductor personal sin animo de lucro)");
         using var resp = await http.SendAsync(req, ct);
         return resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync(ct) : "[]";
     }
