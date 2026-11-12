@@ -438,6 +438,7 @@
   function start() {
     const it = S.queue[S.index];
     if (!it) return;
+    S.userPause = false; S.resumeTries = 0;
     S.now = it; S.time = 0; S.duration = it.duration || 0; S.lyrics = null; S.lyricsFor = ''; S.lyricIndex = -1;
     Player.load(resolveLocal(it), { audioOnly: S.audioOnly });
     if (S.audioOnly) showVideo(false); else setVideoMode(videoMode() === 'pip' ? 'pip' : 'full');
@@ -466,7 +467,7 @@
     if (msOk) {
       try { navigator.mediaSession.metadata = new MediaMetadata(m); } catch (e) { /* formato no admitido */ }
     }
-    if (Native.platform === 'ios') Native.call('nowPlaying', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: it.duration || 0, position: 0, playing: true }).catch(() => {});
+    if (Native.platform !== 'web') Native.call('nowPlaying', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: it.duration || 0, position: 0, playing: true }).catch(() => {});
   }
   function mediaSessionTick(st) {
     if (msOk) {
@@ -480,7 +481,7 @@
         }
       } catch (e) { /* sin soporte */ }
     }
-    if (Native.platform === 'ios' && Date.now() - msPos > 900) {
+    if (Native.platform !== 'web' && Date.now() - msPos > 900) {
       msPos = Date.now();
       Native.call('nowPlayingState', { position: st.time || 0, duration: st.duration > 0 ? st.duration : S.duration, playing: !!st.playing }).catch(() => {});
     }
@@ -538,9 +539,22 @@
   function reactiveKick() { if (!fxr.raf && reactiveWanted()) fxr.raf = requestAnimationFrame(reactiveTick); }
   document.addEventListener('visibilitychange', reactiveKick);
 
+  // Si el sistema pausa la música al bloquear el móvil (sin que el usuario haya pausado), se reanuda sola (hasta 3 veces por canción)
+  const rawPause = Player.pause.bind(Player), rawPlay = Player.play.bind(Player);
+  Player.pause = () => { S.userPause = true; rawPause(); };
+  Player.play = () => { S.userPause = false; rawPlay(); };
+  function autoResume(st) {
+    if (st.playing) { if (st.time > 6) S.resumeTries = 0; return; }
+    if (!document.hidden || S.userPause || !S.now || S.resumeTries >= 3) return;
+    if (S.duration && S.time >= S.duration - 2) return;           // terminó: lo gestiona «ended»
+    S.resumeTries = (S.resumeTries || 0) + 1;
+    setTimeout(() => { if (!S.playing && !S.userPause && document.hidden) rawPlay(); }, 500);
+  }
+
   Player.on('state', (st) => {
     S.playing = st.playing; S.time = st.time; if (st.duration > 0) S.duration = st.duration;
     mediaSessionTick(st);
+    autoResume(st);
     reactiveKick();
     if (st.playing && st.time > 1) S.skips = 0;       // ya suena: se acaba la racha de errores
     LS.setIcon($('#play'), st.playing ? 'pause' : 'play');

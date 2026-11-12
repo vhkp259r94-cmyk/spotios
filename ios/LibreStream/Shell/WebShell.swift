@@ -1,4 +1,6 @@
+import AVFoundation
 import SwiftUI
+import UIKit
 import WebKit
 
 /// Envoltorio nativo de la interfaz compartida (app/dist/index.html) dentro de un WKWebView.
@@ -41,6 +43,7 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
         config.allowsPictureInPictureMediaPlayback = true
         config.setURLSchemeHandler(self, forURLScheme: "lsmedia")
         nowPlaying.onCommand = { [weak self] command in self?.sendRemote(command) }
+        observeAudioSession()
 
         let controller = config.userContentController
         controller.addScriptMessageHandler(self, contentWorld: .page, name: "native")
@@ -139,6 +142,27 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
         default:
             replyHandler(nil, "Orden desconocida: \(name)")
         }
+    }
+
+    /// Mantiene viva la sesión de audio: si el sistema la interrumpe (llamada, Siri, bloqueo) la música se reanuda al terminar.
+    private var audioObservers: [NSObjectProtocol] = []
+    private func observeAudioSession() {
+        guard audioObservers.isEmpty else { return }
+        let nc = NotificationCenter.default
+        audioObservers.append(nc.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
+            guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  AVAudioSession.InterruptionType(rawValue: raw) == .ended else { return }
+            try? AVAudioSession.sharedInstance().setActive(true)
+            let opts = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt).map { AVAudioSession.InterruptionOptions(rawValue: $0) }
+            if opts?.contains(.shouldResume) == true { self?.sendRemote(["cmd": "play"]) }
+        })
+        audioObservers.append(nc.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try? AVAudioSession.sharedInstance().setActive(true)
+        })
+        audioObservers.append(nc.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { _ in
+            try? AVAudioSession.sharedInstance().setActive(true)
+        })
     }
 
     private func num(_ value: Any?) -> Double { (value as? NSNumber)?.doubleValue ?? 0 }

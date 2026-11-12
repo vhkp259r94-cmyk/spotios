@@ -15,6 +15,11 @@ import java.util.concurrent.Executors
 class NativeBridge(private val activity: MainActivity, private val web: WebView) {
 
     private val io = Executors.newCachedThreadPool()
+
+    init {
+        // Los botones de la notificación y de la pantalla de bloqueo vuelven a la interfaz como eventos
+        PlaybackService.listener = { cmd, pos -> emit("{\"type\":\"remote\",\"cmd\":\"$cmd\",\"position\":$pos}") }
+    }
     private val fetchHosts = setOf("www.youtube.com", "lrclib.net", "vhkp259r94-cmyk.github.io",
         "open.spotify.com", "api.deezer.com", "music.apple.com", "soundcloud.com")
     private val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
@@ -31,6 +36,15 @@ class NativeBridge(private val activity: MainActivity, private val web: WebView)
                     "download" -> resolve(id, true, download(p).toString())
                     "deleteDownload" -> {
                         if (!p.isNull("file")) File(downloadsDir, safeName(p.getString("file"))).delete()
+                        resolve(id, true, "\"ok\"")
+                    }
+                    "nowPlaying" -> {
+                        PlaybackService.update(activity, p.optString("title"), p.optString("artist"), p.optString("album"), p.optString("artwork"),
+                            p.optDouble("duration", 0.0), p.optDouble("position", 0.0), p.optBoolean("playing", true))
+                        resolve(id, true, "\"ok\"")
+                    }
+                    "nowPlayingState" -> {
+                        PlaybackService.state(activity, p.optDouble("position", 0.0), p.optDouble("duration", 0.0), p.optBoolean("playing", false))
                         resolve(id, true, "\"ok\"")
                     }
                     "setAdBlock" -> {
