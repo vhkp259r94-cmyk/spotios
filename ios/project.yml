@@ -38,10 +38,16 @@ targets:
     sources: [LibreStreamTests]
     dependencies:
       - target: LibreStream
+  LibreStreamUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [LibreStreamUITests]
+    dependencies:
+      - target: LibreStream
 schemes:
   LibreStream:
     build:
       targets:
         LibreStream: all
     test:
-      targets: [LibreStreamTests]
+      targets: [LibreStreamTests, LibreStreamUITests]
