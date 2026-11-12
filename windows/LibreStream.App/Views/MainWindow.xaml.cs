@@ -1390,6 +1390,114 @@ public sealed partial class MainWindow : Window
         if (sender is UIElement ui) ui.Translation = Vector3.Zero;
     }
 
+    // ===================== Importar una lista desde un enlace =====================
+
+    /// <summary>Pide un enlace (YouTube, Spotify, Deezer, Apple Music o SoundCloud) y crea una lista con esas canciones buscadas en YouTube Music.</summary>
+    private async void ImportLink_Click(object sender, RoutedEventArgs e)
+    {
+        var url = new TextBox { PlaceholderText = LinkImport.Hint + "…" };
+        var note = new TextBlock
+        {
+            Text = LinkImport.Notice + " Por enlace, Spotify solo entrega las primeras canciones (unas 50–100).",
+            TextWrapping = TextWrapping.Wrap, Opacity = 0.65, FontSize = 12,
+        };
+        var status = new TextBlock { TextWrapping = TextWrapping.Wrap, MinHeight = 22 };
+        var bar = new ProgressBar { Visibility = Visibility.Collapsed, Minimum = 0, Maximum = 1 };
+        var panel = new StackPanel { Spacing = 10, Width = 460, Children = { url, note, bar, status } };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Root.XamlRoot, Title = "Importar lista de reproducción", Content = panel,
+            PrimaryButtonText = "Importar", CloseButtonText = "Cancelar", DefaultButton = ContentDialogButton.Primary,
+            RequestedTheme = ElementTheme.Dark,
+        };
+        var cts = new CancellationTokenSource();
+        string? openListId = null;
+        dialog.PrimaryButtonClick += async (_, args) =>
+        {
+            args.Cancel = true;                                         // el diálogo sigue abierto mientras se importa
+            var (link, error) = LinkImport.ParseLink(url.Text);
+            if (link is null) { status.Text = error ?? "Enlace no válido."; return; }
+            dialog.IsPrimaryButtonEnabled = false; url.IsEnabled = false; bar.Visibility = Visibility.Visible;
+            try { openListId = await RunImportAsync(link, status, bar, cts.Token); }
+            catch (OperationCanceledException) { /* cerrado a mitad: lo ya importado queda en la lista */ }
+            catch (Exception ex) { App.LogOnce("Importar lista", ex); status.Text = "No se pudo importar la lista."; }
+            finally { dialog.CloseButtonText = "Cerrar"; bar.Visibility = Visibility.Collapsed; }
+        };
+        dialog.Closing += (_, _) => cts.Cancel();
+        await dialog.ShowAsync();
+        RebuildPlaylistNav();
+        if (openListId is not null) SelectNav("pl:" + openListId);
+    }
+
+    /// <summary>Lee el enlace, crea la lista y busca cada canción en YouTube Music por lotes de 24 (3 a la vez). Devuelve el id de la lista creada.</summary>
+    private async Task<string?> RunImportAsync(ImportLink link, TextBlock status, ProgressBar bar, CancellationToken ct)
+    {
+        status.Text = "Leyendo el enlace…";
+        string body;
+        try { body = await LinkImport.FetchAsync(_http, link.FetchUrl, ct); }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            status.Text = "No se pudo abrir el enlace (¿es público? ¿hay conexión?).";
+            return null;
+        }
+        var info = LinkImport.Parse(link, body);
+        if (info.Tracks.Count == 0)
+        {
+            status.Text = "No se encontraron canciones. La lista debe ser pública, y el servicio puede haber cambiado su página.";
+            return null;
+        }
+        var list = _playlists.Create(string.IsNullOrWhiteSpace(info.Name) ? "Lista importada" : info.Name);
+        var total = info.Tracks.Count;
+        int done = 0, found = 0;
+        var missing = new List<string>();
+        for (var start = 0; start < total; start += 24)
+        {
+            ct.ThrowIfCancellationRequested();
+            var chunk = info.Tracks.Skip(start).Take(24).ToList();
+            var results = new SavedItem?[chunk.Count];
+            var failed = new bool[chunk.Count];
+            using var gate = new SemaphoreSlim(3);
+            await Task.WhenAll(chunk.Select(async (t, i) =>
+            {
+                await gate.WaitAsync(ct);
+                try { (results[i], failed[i]) = await SearchSongAsync(t, ct); }
+                finally
+                {
+                    gate.Release();
+                    done++;
+                    bar.Value = (double)done / total;
+                    status.Text = $"Buscando en YouTube Music… {done} de {total}";
+                }
+            }));
+            found += _playlists.AddMany(list.Id, results.OfType<SavedItem>());
+            for (var i = 0; i < chunk.Count; i++)
+                if (results[i] is null) missing.Add((chunk[i].Artist.Length > 0 ? chunk[i].Artist + " — " : "") + chunk[i].Title + (failed[i] ? " (YouTube no respondió)" : ""));
+        }
+        if (found == 0) { _playlists.Delete(list.Id); status.Text = "No se encontró ninguna de las canciones en YouTube Music."; return null; }
+        status.Text = $"{found} de {total} canciones añadidas a «{list.Name}»."
+            + (missing.Count > 0 ? $" {missing.Count} sin encontrar (por ejemplo: {string.Join("; ", missing.Take(3))})." : "");
+        return list.Id;
+    }
+
+    /// <summary>Busca una canción; si YouTube pide calma (error de red o límite) espera y reintenta una vez.</summary>
+    private async Task<(SavedItem? Item, bool Failed)> SearchSongAsync(ImportTrack t, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            try
+            {
+                var results = (await YouTubeMusic.SearchSongsAsync(_http, $"{t.Artist} {t.Title}".Trim(), ct)).Where(ContentFilter.IsSong);
+                var m = LinkImport.PickMatch(t, results);
+                return (m is null ? null : new SavedItem("youtube", m.Id, m.Title, m.Channel, m.DurationSec, m.Thumbnail.AbsoluteUri), false);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+            {
+                await Task.Delay(8000 * (attempt + 1), ct);
+            }
+        }
+        return (null, true);
+    }
+
     /// <summary>Guarda la biblioteca y las listas en un archivo (el mismo formato que la web y el móvil) donde elija el usuario.</summary>
     private async void ExportLibrary_Click(object sender, RoutedEventArgs e)
     {

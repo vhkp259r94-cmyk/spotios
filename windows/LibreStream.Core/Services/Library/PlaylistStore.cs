@@ -47,6 +47,18 @@ public sealed class PlaylistStore
     public bool Contains(string id, SavedItem item) =>
         Find(id)?.Items.Any(i => i.Source == item.Source && i.Id == item.Id) == true;
 
+    /// <summary>Añade varias canciones de una vez (una sola escritura) sin repetir. Devuelve cuántas añadió.</summary>
+    public int AddMany(string id, IEnumerable<SavedItem> items)
+    {
+        if (Find(id) is not { } list) return 0;
+        var have = list.Items.Select(i => (i.Source, i.Id)).ToHashSet();
+        var added = 0;
+        foreach (var it in items)
+            if (have.Add((it.Source, it.Id))) { list.Items.Add(it); added++; }
+        if (added > 0) Save();
+        return added;
+    }
+
     /// <summary>Añade o quita el elemento de la lista. Devuelve true si queda dentro.</summary>
     public bool Toggle(string id, SavedItem item)
     {
