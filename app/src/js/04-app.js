@@ -173,6 +173,7 @@
   const scopeNow = () => (S.page === 'music' ? 'track' : S.page === 'videos' ? 'video' : S.scope);
 
   function render() {
+    closeOverlays();
     const id = ++S.renderId;
     const v = $('#view');
     v.classList.remove('in'); void v.offsetWidth; v.classList.add('in');
@@ -264,9 +265,30 @@
       <div class="shade"></div><div class="txt"><div class="label">NUEVO LANZAMIENTO${it.published ? ' · ' + esc(it.published.toUpperCase()) : ''}</div>
       <div class="big">${esc(g.title)}</div><div class="s">${esc(it.sub)} · ${LS.formatTime(it.duration)}</div>
       <button class="primary" data-act="play" data-key="${esc(it.key)}" data-list="releases">${LS.icon('play')} Reproducir</button></div>
-      <div class="dots">${S.releases.map((_, i) => `<span class="${i === S.heroIndex % S.releases.length ? 'on' : ''}"></span>`).join('')}</div>`;
+      <div class="dots">${S.releases.map((_, i) => `<button class="dot-b ${i === S.heroIndex % S.releases.length ? 'on' : ''}" data-hero="${i}" aria-label="Novedad ${i + 1} de ${S.releases.length}"><span></span></button>`).join('')}</div>
+      ${S.releases.length > 1 ? '<button class="hero-nav l" data-hero="prev" aria-label="Novedad anterior">‹</button><button class="hero-nav r" data-hero="next" aria-label="Novedad siguiente">›</button>' : ''}`;
+    el.classList.remove('sl', 'sr'); void el.offsetWidth; el.classList.add(heroDir > 0 ? 'sl' : 'sr');
   }
-  setInterval(() => { if (!document.hidden && S.releases.length > 1 && S.page === 'home' && !S.query) { S.heroIndex = (S.heroIndex + 1) % S.releases.length; renderHero(); } }, 9000);
+  // El banner se mueve con el dedo (deslizar a los lados) o con los puntos y las flechas; si lo tocas, deja de cambiar solo un rato
+  let heroDir = 1, heroPause = 0;
+  function heroGo(to) {
+    const n = S.releases.length; if (n < 2) return;
+    const cur = S.heroIndex % n;
+    const target = to === 'next' ? (cur + 1) % n : to === 'prev' ? (cur + n - 1) % n : Number(to) % n;
+    heroDir = to === 'prev' || (typeof to === 'number' && target < cur) ? -1 : 1;
+    S.heroIndex = target; heroPause = Date.now() + 25000; buzz(); renderHero();
+  }
+  (function () {
+    const el = $('#view'); let x0 = 0, y0 = 0, active = false;      // #hero se recrea en cada visita: se escucha en el contenedor
+    el.addEventListener('touchstart', (e) => { if (!e.target.closest('#hero')) return; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; active = true; heroPause = Date.now() + 25000; }, { passive: true });
+    el.addEventListener('touchend', (e) => {
+      if (!active) return; active = false;
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) heroGo(dx < 0 ? 'next' : 'prev');
+    }, { passive: true });
+    el.addEventListener('touchcancel', () => { active = false; }, { passive: true });
+  })();
+  setInterval(() => { if (!document.hidden && Date.now() > heroPause && S.releases.length > 1 && S.page === 'home' && !S.query) { heroDir = 1; S.heroIndex = (S.heroIndex + 1) % S.releases.length; renderHero(); } }, 9000);
 
   // ---------- Música ----------
   async function renderMusic(v, id) {
@@ -558,6 +580,17 @@
     if (!p.dataset.drag) { p.max = Math.max(1, S.duration); p.value = Math.min(S.time, p.max); p.style.setProperty('--p', (100 * p.value / p.max) + '%'); }
   }
 
+  // «Atrás» (botón o gesto de Android): cierra lo que esté encima antes de cambiar de página. Devuelve true si cerró algo.
+  function closeOverlays() {
+    let closed = false;
+    if ($('#np').classList.contains('open')) { closeNp(); closed = true; }
+    ['#imp', '#qp', '#qm'].forEach((sel) => { const o = $(sel); if (o && !o.hidden) { o.hidden = true; importing.cancel = true; closed = true; } });
+    const ly = $('#lyrics'); if (ly && !ly.hidden) { ly.hidden = true; closed = true; }
+    const am = $('#addMenu'); if (am && !am.hidden) { am.hidden = true; closed = true; }
+    return closed;
+  }
+  window.__lsBack = closeOverlays;
+
   const openNp = () => { if (!S.now) return; updateNp(); $('#np').classList.add('open'); syncNp(); };
   const closeNp = () => $('#np').classList.remove('open');
 
@@ -751,10 +784,11 @@
 
   // ---------- Eventos ----------
   document.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-act],[data-scope],[data-genre],[data-sub],[data-page],[data-look]');
+    const t = e.target.closest('[data-hero],[data-act],[data-scope],[data-genre],[data-sub],[data-page],[data-look]');
     if (!t) { $('#addMenu').hidden = true; return; }
     const d = t.dataset;
     if (d.look) { store.settings.set({ look: d.look }); applyLook(d.look); if (S.page === 'settings') render(); return; }
+    if (d.hero !== undefined) { heroGo(/^\d+$/.test(d.hero) ? Number(d.hero) : d.hero); return; }
     if (d.page) { go('#/' + d.page); return; }
     if (d.scope) {
       if (S.page === 'home' && d.scope === 'track') { go('#/music'); return; }     // Música y Vídeos abren su apartado directamente

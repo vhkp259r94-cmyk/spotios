@@ -121,8 +121,10 @@ class MainActivity : Activity() {
     override fun onBackPressed() {
         when {
             customView != null -> web.webChromeClient?.onHideCustomView()
-            web.canGoBack() -> web.goBack()
-            else -> @Suppress("DEPRECATION") super.onBackPressed()
+            else -> web.evaluateJavascript("(window.__lsBack && window.__lsBack()) === true") { handled ->
+                // Primero se cierra lo que esté encima (Reproduciendo, cola, menús); si no había nada, se vuelve a la página anterior
+                if (handled != "true") { if (web.canGoBack()) web.goBack() else finish() }
+            }
         }
     }
 

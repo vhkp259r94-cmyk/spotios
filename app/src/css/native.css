@@ -70,3 +70,18 @@ body.fx #nav button.on .ico { transform: translateY(-2px) scale(1.12); color: va
   #splash img, .eqmini i { animation: none !important; }
   body.fx .np-art, body.fx .card .thumb, body.fx #nav button .ico { transition: none; }
 }
+
+/* Banner del inicio táctil: deslizable, con puntos grandes y flechas */
+.hero { touch-action: pan-y; }
+.hero.sl .txt, .hero.sl img { animation: heroL .35s cubic-bezier(.2, .8, .2, 1); }
+.hero.sr .txt, .hero.sr img { animation: heroR .35s cubic-bezier(.2, .8, .2, 1); }
+@keyframes heroL { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes heroR { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+.hero .dots { gap: 0; right: 14px; bottom: 10px; }
+.hero .dot-b { width: 28px; height: 32px; padding: 0; background: transparent; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+.hero .dot-b span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, .4); transition: width .25s, background .25s; }
+.hero .dot-b.on span { width: 22px; border-radius: 4px; background: #fff; }
+.hero-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; padding: 0; font-size: 26px; line-height: 1; background: rgba(0, 0, 0, .45); color: #fff; opacity: 0; transition: opacity .2s; z-index: 2; }
+.hero-nav.l { left: 10px; } .hero-nav.r { right: 10px; }
+.hero:hover .hero-nav { opacity: 1; }
+@media (hover: none) { .hero-nav { display: none; } }
