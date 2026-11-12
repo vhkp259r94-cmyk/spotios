@@ -97,3 +97,19 @@ body.fx #nav button.on .ico { transform: translateY(-2px) scale(1.12); color: va
 #pipBar button { width: 30px; height: 30px; padding: 0; border-radius: 50%; background: rgba(0, 0, 0, .65); color: #fff; display: inline-flex; align-items: center; justify-content: center; }
 #pipBar .ic { width: 15px; height: 15px; }
 @media (min-width: 801px) { #videoLayer.pip { bottom: calc(var(--barh) + 12px); right: 16px; } }
+
+/* Color dinámico según la carátula y halo reactivo */
+@property --sat { syntax: '<percentage>'; inherits: true; initial-value: 62%; }
+@property --lum { syntax: '<percentage>'; inherits: true; initial-value: 36%; }
+body.fx { transition: --h 1.4s ease, --sat 1.4s ease, --lum 1.4s ease; }
+body.fx .np { background:
+  radial-gradient(120% 60% at 50% 0%, hsl(var(--h) var(--sat) var(--lum) / .8), transparent 72%),
+  radial-gradient(90% 50% at 50% 105%, hsl(calc(var(--h) + 35) var(--sat) calc(var(--lum) - 4%) / .5), transparent 70%), var(--bg); }
+.np-stage { position: relative; width: min(78vw, 46vh, 380px); margin: 8px 0 10px; flex: none; }
+.np-stage .np-art { width: 100%; margin: 0; position: relative; }
+.np-glow { position: absolute; inset: -16%; border-radius: 50%; pointer-events: none; opacity: .3;
+  background: radial-gradient(closest-side, hsl(var(--h) var(--sat) 52% / .8), hsl(var(--h) var(--sat) 45% / .25) 60%, transparent); will-change: transform, opacity; }
+.np.reactive .np-art { transition: none; }
+@media (prefers-reduced-motion: reduce) { .np-glow { display: none; } }
+
+.np > * { flex-shrink: 0; }

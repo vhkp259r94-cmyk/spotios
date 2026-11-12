@@ -74,6 +74,14 @@
     if (d.lsEqStatusReq && e.source) e.source.postMessage({ lsEqStatus: JSON.parse(window.__lsEqStatus()) }, '*');
   });
 
+  // Con el ecualizador activo ya hay un analizador: se envía el nivel a la página (10 veces por segundo, solo si suena)
+  setInterval(() => {
+    if (!attached || !ctx || ctx.state !== 'running' || window.parent === window) return;
+    const v = document.querySelector('video');
+    if (!v || v.paused) return;
+    try { window.parent.postMessage({ lsLevel: Math.min(1, level() / 255) }, '*'); } catch (e) { /* sin página padre */ }
+  }, 100);
+
   setInterval(() => {
     if (enabled && !attached) {
       const v = document.querySelector('video');

@@ -344,3 +344,19 @@ test('pantalla de bloqueo: artista, álbum y carátula limpios', () => {
   assert.equal(LS.mediaPosition(500, 100).position, 100);
   assert.equal(LS.mediaPosition(NaN, 100), null);
 });
+
+test('color de la carátula y pulso', () => {
+  const solid = (r, g, b, n = 50) => Array.from({ length: n }, () => [r, g, b, 255]).flat();
+  assert.ok(Math.abs(LS.coverColor(solid(220, 20, 20)).h - 0) <= 1 || LS.coverColor(solid(220, 20, 20)).h >= 359);
+  assert.ok(Math.abs(LS.coverColor(solid(20, 40, 220)).h - 232) <= 8);
+  assert.equal(LS.coverColor(solid(128, 128, 128)).h, null);                 // gris: sin color
+  assert.equal(LS.coverColor(solid(5, 5, 5)).h, null);                       // casi negro (barras): sin color
+  const mix = [...solid(20, 200, 40, 40), ...solid(120, 120, 120, 200), ...solid(0, 0, 0, 200)];
+  const c = LS.coverColor(mix);
+  assert.ok(c.h > 100 && c.h < 140 && c.s >= 40 && c.s <= 85 && c.l >= 28 && c.l <= 44, JSON.stringify(c));   // domina el verde
+  assert.equal(LS.coverColor([]).h, null);
+  for (let t = 0; t < 10; t += 0.37) { const e = LS.pulseAt(t, 7); assert.ok(e >= 0 && e <= 1); }
+  assert.equal(LS.pulseAt(1.23, 5), LS.pulseAt(1.23, 5));                    // estable por canción
+  assert.equal(LS.normalizeSettings({}).reactive, true);
+  assert.equal(LS.normalizeSettings({ reactive: false }).reactive, false);
+});

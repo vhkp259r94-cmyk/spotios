@@ -26,7 +26,7 @@ var LS = globalThis.LS = globalThis.LS || {};
     const volume = Number.isFinite(Number(s.volume)) ? Math.max(0, Math.min(100, Number(s.volume))) : 80;
     let preset = typeof s.eqPreset === 'string' ? s.eqPreset : 'Plano';
     if (preset !== LS.EQ_CUSTOM && !(preset in LS.EQ_PRESETS)) preset = LS.EQ_CUSTOM;
-    return { eqEnabled: !!s.eqEnabled, eqPreset: preset, eqBands: bands, adBlock: s.adBlock !== false, volume, look: LS.LOOKS.some((l) => l[0] === s.look) ? s.look : 'nsound' };
+    return { eqEnabled: !!s.eqEnabled, eqPreset: preset, eqBands: bands, adBlock: s.adBlock !== false, reactive: s.reactive !== false, volume, look: LS.LOOKS.some((l) => l[0] === s.look) ? s.look : 'nsound' };
   };
 
   /**

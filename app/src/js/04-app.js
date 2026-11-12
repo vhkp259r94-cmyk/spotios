@@ -134,25 +134,18 @@
 
   // Color de la carátula (si el navegador deja leerla); si no, un tono estable según la canción
   function artHue(url, id, apply) {
-    apply(hue(id));
+    apply({ h: hue(id), s: 62, l: 36 });
     if (!url) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
-        const c = document.createElement('canvas'); c.width = c.height = 16;
-        const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, 16, 16);
-        const d = g.getImageData(0, 0, 16, 16).data; let best = 0, bh = null;
-        for (let i = 0; i < d.length; i += 4) {
-          const r = d[i] / 255, gr = d[i + 1] / 255, b = d[i + 2] / 255, mx = Math.max(r, gr, b), mn = Math.min(r, gr, b), sat = mx ? (mx - mn) / mx : 0;
-          if (sat * mx > best && mx - mn > 0.08) {
-            best = sat * mx;
-            const dl = mx - mn;
-            let h = mx === r ? ((gr - b) / dl) % 6 : mx === gr ? (b - r) / dl + 2 : (r - gr) / dl + 4;
-            bh = Math.round((h * 60 + 360) % 360);
-          }
-        }
-        if (bh !== null) apply(bh);
+        const c = document.createElement('canvas'); c.width = c.height = 20;
+        const g = c.getContext('2d', { willReadFrequently: true });
+        const w = img.naturalWidth, h = img.naturalHeight;
+        g.drawImage(img, w * 0.24, h * 0.12, w * 0.52, h * 0.76, 0, 0, 20, 20);   // solo el centro: se ignoran las barras de los lados
+        const col = LS.coverColor(g.getImageData(0, 0, 20, 20).data);
+        apply({ h: col.h === null ? hue(id) : col.h, s: col.h === null ? 10 : col.s, l: col.l });
       } catch (e) { /* imagen de otro origen sin permiso: se queda el tono por defecto */ }
     };
     img.src = url;
@@ -396,7 +389,8 @@
     v.innerHTML = `<h1>Ajustes</h1>
       <section class="panel"><h2>Aspecto</h2>
         <div class="chips">${LS.LOOKS.map(([id, name, , accent]) => `<button class="chip ${id === s.look ? 'on' : ''}" data-look="${id}"><i class="dot" style="background:${accent}"></i>${esc(name)}</button>`).join('')}</div>
-        <p class="note">Elige el estilo: cambia colores, brillo y animaciones al momento. «Clásico» es el aspecto de siempre; los demás se apagan solos si tu móvil tiene «reducir movimiento».</p></section>
+        <p class="note">Elige el estilo: cambia colores, brillo y animaciones al momento. «Clásico» es el aspecto de siempre; los demás se apagan solos si tu móvil tiene «reducir movimiento».</p><label class="switch"><input type="checkbox" id="reactiveOn" ${s.reactive ? 'checked' : ''}> Efectos que reaccionan a la música</label>
+        <p class="note">Pulso suave en la pantalla «Reproduciendo». Con el ecualizador activo sigue el audio real. Se apaga solo con «reducir movimiento», ahorro de datos o batería baja.</p></section>
       <section class="panel"><h2>Ecualizador</h2>
         <label class="switch"><input type="checkbox" id="eqOn" ${s.eqEnabled ? 'checked' : ''}> Activar ecualizador</label>
         <label class="field">Ajuste <select id="eqPreset">${[...Object.keys(LS.EQ_PRESETS), LS.EQ_CUSTOM].map((n) => `<option ${n === s.eqPreset ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
@@ -509,9 +503,45 @@
     else if (e.cmd === 'seek' && typeof e.position === 'number') Player.seek(e.position);
   });
 
+
+  // ---------- Efecto reactivo en «Reproduciendo» ----------
+  // Solo corre con la pantalla abierta, sonando y visible; ~24 fps (15 en móviles modestos) y solo transform/opacity de 2 elementos.
+  // Con el ecualizador activo usa el nivel REAL del audio; si no, un pulso suave sin audio real (no se toca el audio para no
+  // arriesgar la reproducción en segundo plano). Se apaga con «reducir movimiento», ahorro de datos o batería baja.
+  const fxr = { raf: 0, last: 0, e: 0, level: 0, levelAt: 0 };
+  const fxLowEnd = (navigator.hardwareConcurrency || 4) <= 4;
+  const fxReduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const fxSaveData = !!(navigator.connection && navigator.connection.saveData);
+  let fxLowBattery = false;
+  if (navigator.getBattery) navigator.getBattery().then((b) => { const f = () => { fxLowBattery = !b.charging && b.level < 0.2; }; f(); b.addEventListener('levelchange', f); b.addEventListener('chargingchange', f); }).catch(() => {});
+  window.addEventListener('message', (e) => { if (e.data && typeof e.data.lsLevel === 'number') { fxr.level = e.data.lsLevel; fxr.levelAt = Date.now(); } });
+  const reactiveWanted = () => store.settings.get().reactive && document.body.classList.contains('fx') && !fxReduce && !fxSaveData && !fxLowBattery
+    && !document.hidden && S.playing && S.now && $('#np').classList.contains('open');
+  function reactiveReset() {
+    $('#np').classList.remove('reactive');
+    const a = $('#npArt'), g = $('#npGlow'); if (a) a.style.transform = ''; if (g) { g.style.opacity = ''; g.style.transform = ''; }
+  }
+  function reactiveTick(ts) {
+    fxr.raf = 0;
+    if (!reactiveWanted()) { reactiveReset(); return; }
+    if (ts - fxr.last >= (fxLowEnd ? 66 : 42)) {
+      fxr.last = ts;
+      const real = Date.now() - fxr.levelAt < 600;
+      const target = real ? Math.min(1, fxr.level * 2.6) : LS.pulseAt(ts / 1000, hue(S.now.id));
+      fxr.e += (target - fxr.e) * 0.5;
+      $('#np').classList.add('reactive');
+      $('#npArt').style.transform = `scale(${(0.965 + fxr.e * 0.05).toFixed(3)})`;
+      const g = $('#npGlow'); g.style.opacity = (0.3 + fxr.e * 0.55).toFixed(2); g.style.transform = `scale(${(0.92 + fxr.e * 0.16).toFixed(3)})`;
+    }
+    fxr.raf = requestAnimationFrame(reactiveTick);
+  }
+  function reactiveKick() { if (!fxr.raf && reactiveWanted()) fxr.raf = requestAnimationFrame(reactiveTick); }
+  document.addEventListener('visibilitychange', reactiveKick);
+
   Player.on('state', (st) => {
     S.playing = st.playing; S.time = st.time; if (st.duration > 0) S.duration = st.duration;
     mediaSessionTick(st);
+    reactiveKick();
     if (st.playing && st.time > 1) S.skips = 0;       // ya suena: se acaba la racha de errores
     LS.setIcon($('#play'), st.playing ? 'pause' : 'play');
     $('#elapsed').textContent = LS.formatTime(S.time);
@@ -536,7 +566,7 @@
     const it = S.now;
     if (!it) return;
     document.body.classList.add('has-track');
-    artHue(it.thumb, it.id, (h) => document.body.style.setProperty('--h', h));
+    artHue(it.thumb, it.id, (c) => { const st = document.body.style; st.setProperty('--h', c.h); st.setProperty('--sat', c.s + '%'); st.setProperty('--lum', c.l + '%'); });
     recentPush(it);
     mediaSessionSet(it);
     $$('.card.cur').forEach((c) => c.classList.remove('cur'));
@@ -597,7 +627,7 @@
   }
   window.__lsBack = closeOverlays;
 
-  const openNp = () => { if (!S.now) return; updateNp(); $('#np').classList.add('open'); syncNp(); };
+  const openNp = () => { if (!S.now) return; updateNp(); $('#np').classList.add('open'); syncNp(); reactiveKick(); };
   const closeNp = () => $('#np').classList.remove('open');
 
   $('.now').addEventListener('click', () => { if (document.body.classList.contains('fx')) openNp(); });
@@ -865,6 +895,7 @@
     const t = e.target;
     if (t.id === 'eqOn') { store.settings.set({ eqEnabled: t.checked }); applyEq(); refreshEqStatus(); }
     if (t.id === 'eqPreset' && LS.EQ_PRESETS[t.value]) { store.settings.set({ eqPreset: t.value, eqBands: LS.EQ_PRESETS[t.value] }); applyEq(); render(); }
+    if (t.id === 'reactiveOn') { store.settings.set({ reactive: t.checked }); if (t.checked) reactiveKick(); }
     if (t.id === 'adOn') { store.settings.set({ adBlock: t.checked }); Native.call('setAdBlock', { enabled: t.checked }).catch(() => {}); }
   });
 
