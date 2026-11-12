@@ -551,7 +551,7 @@
   // bloqueada. Así el sistema sigue ejecutando la página (para reanudar si YouTube se pausa) y muestra NUESTROS datos y botones
   // en la pantalla de bloqueo. Solo en la web: las apps ya tienen su propio arreglo.
   const keepAlive = (() => {
-    if ((Native.platform !== 'web' && Native.platform !== 'ios') || typeof Audio === 'undefined' || typeof Blob === 'undefined') return { on() {}, off() {} };
+    if (Native.platform !== 'web' || typeof Audio === 'undefined' || typeof Blob === 'undefined') return { on() {}, off() {} };
     let a = null;
     const make = () => {
       const n = 8000, buf = new Uint8Array(44 + n).fill(128), dv = new DataView(buf.buffer);
