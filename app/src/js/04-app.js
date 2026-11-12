@@ -521,13 +521,15 @@
       <p class="imp-note">${esc(LS.IMPORT_NOTICE)}</p><div id="impOut" class="imp-out" aria-live="polite"></div>
       <div class="imp-btns"><button data-act="importclose">Cancelar</button><button id="impGo" class="primary" data-act="importgo">Importar</button></div></div>`;
     o.hidden = false;
+    o.onclick = (e) => { if (e.target === o) closeImport(); };
+    o.onkeydown = (e) => { if (e.key === 'Escape') closeImport(); if (e.key === 'Enter' && e.target.id === 'impUrl') runImport(); };
     setTimeout(() => $('#impUrl') && $('#impUrl').focus(), 50);
   }
   function closeImport() { importing.cancel = true; const o = $('#imp'); if (o) o.hidden = true; }
 
   async function runImport() {
-    if (importing.busy) return;
     const out = $('#impOut'), btn = $('#impGo');
+    if (importing.busy) { out.textContent = 'Espera un momento: se está terminando la importación anterior.'; return; }
     const link = LS.parseImportLink($('#impUrl').value);
     if (link.error) { out.textContent = link.error; return; }
     importing.busy = true; importing.cancel = false; btn.disabled = true;
@@ -536,8 +538,7 @@
       let text;
       try { text = await Native.fetchText(link.fetchUrl); } catch (e) { throw new Error('No se pudo abrir el enlace (¿es público? ¿hay conexión?).'); }
       const info = LS.parseImported(link, text);
-      let wanted = info.tracks;
-      if (!wanted.length && link.service === 'apple' && link.kind === 'artist' && info.name) wanted = [{ title: '', artist: info.name }];
+      const wanted = info.tracks;
       if (!wanted.length) throw new Error('No se encontraron canciones. La lista debe ser pública, y el servicio puede haber cambiado su página.');
       const found = [], missing = [];
       let n = 0;
