@@ -36,3 +36,29 @@ jobs:
           echo "--- LRCLIB / Deezer:"
           curl -s -o /dev/null -w "lrclib %{http_code}\n" "$U/__proxy?url=https%3A%2F%2Flrclib.net%2Fapi%2Fsearch%3Fq%3Dqueen"
           curl -s -o /dev/null -w "deezer %{http_code}\n" "$U/__proxy?url=https%3A%2F%2Fapi.deezer.com%2Ftrack%2F3135556"
+      - name: Prueba de volumen (como importar una lista de 300 canciones)
+        shell: bash
+        run: |
+          U=http://127.0.0.1:5199
+          names=(queen adele coldplay nirvana shakira estopa quevedo rosalia karol maluma aitana sabina melendi alborán fito extremoduro manuchao camela dualipa weeknd edsheeran daftpunk michaeljackson prince madonna eminem rihanna beyonce drake ozuna anuel)
+          ok=0; bad=0; codes=""
+          for i in $(seq 1 300); do
+            q="${names[$((i % ${#names[@]}))]} $i"
+            body='{"context":{"client":{"clientName":"WEB_REMIX","clientVersion":"1.20241106.01.00","hl":"es","gl":"ES"}},"query":"'"$q"'","params":"EgWKAQIIAWoMEA4QChADEAQQCRAF"}'
+            code=$(curl -s -o /tmp/r.json -w "%{http_code}" -X POST -H "Content-Type: application/json" --data "$body" "$U/__post?url=https%3A%2F%2Fmusic.youtube.com%2Fyoutubei%2Fv1%2Fsearch%3FprettyPrin%3Dfalse" &) 
+            if (( i % 3 == 0 )); then wait; fi
+          done
+          wait
+          # versión medible (secuencial con 3 en paralelo por lotes)
+          : > /tmp/codes.txt
+          run() { curl -s -o /dev/null -w "%{http_code}
+" -X POST -H "Content-Type: application/json" --data "$2" "$U/__post?url=https%3A%2F%2Fmusic.youtube.com%2Fyoutubei%2Fv1%2Fsearch%3FprettyPrin%3Dfalse" >> /tmp/codes.txt; }
+          for i in $(seq 1 300); do
+            q="${names[$((i % ${#names[@]}))]} tema $i"
+            b='{"context":{"client":{"clientName":"WEB_REMIX","clientVersion":"1.20241106.01.00","hl":"es","gl":"ES"}},"query":"'"$q"'","params":"EgWKAQIIAWoMEA4QChADEAQQCRAF"}'
+            run x "$b" &
+            if (( i % 3 == 0 )); then wait; fi
+          done
+          wait
+          echo "resultado de 300 búsquedas seguidas (3 a la vez):"
+          sort /tmp/codes.txt | uniq -c
