@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 require('../src/js/00-core.js');
 require('../src/js/00-import.js');
+require('../src/js/00-catalog.js');
 require('../src/js/00-queue.js');
 require('../src/js/00-media.js');
 require('../src/js/01-stores.js');
@@ -416,4 +417,46 @@ test('reanudar sola solo tras bloquear, no con la pausa de los cascos', () => {
   assert.equal(LS.shouldAutoResume({ ...base, time: 199 }), false);                 // la canción terminó
   assert.equal(LS.shouldAutoResume({ ...base, tries: 3 }), false);                  // máximo de reintentos
   assert.equal(LS.shouldAutoResume({ ...base, hasNow: false }), false);
+});
+
+test('Catálogo: normaliza nombres y limpia el canal de YouTube Music', () => {
+  assert.equal(LS.normName('Rosalía'), LS.normName('ROSALIA'));
+  assert.equal(LS.cleanArtistName('Bad Bunny - Topic'), 'Bad Bunny');
+  assert.equal(LS.cleanArtistName('ShakiraVEVO'), 'Shakira');
+});
+
+test('Catálogo: elige solo el artista que coincide exactamente', () => {
+  const json = { artists: [
+    { id: 'x1', name: 'Feid Tribute', score: 100 },
+    { id: 'a1', name: 'Feid', score: 100, type: 'Person', area: { name: 'Colombia' }, 'life-span': { begin: '2008-01-01' }, tags: [{ name: 'reggaeton', count: 5 }, { name: 'pop', count: 9 }] },
+  ] };
+  const a = LS.pickArtist(json, 'FEID');
+  assert.equal(a.mbid, 'a1'); assert.equal(a.country, 'Colombia'); assert.equal(a.begin, '2008'); assert.deepEqual(a.tags, ['pop', 'reggaeton']);
+  assert.equal(LS.pickArtist(json, 'Otro artista pequeño'), null);
+  assert.equal(LS.pickArtist({ artists: [{ id: 'z', name: 'Feid', score: 40 }] }, 'Feid'), null);   // puntuación baja: no se arriesga
+  assert.equal(LS.pickArtist(null, 'Feid'), null);
+});
+
+test('Catálogo: discografía sin directos ni repetidos, lo nuevo primero', () => {
+  const r = LS.parseReleaseGroups({ 'release-groups': [
+    { id: '1', title: 'Viejo', 'first-release-date': '2015-05-01', 'primary-type': 'Album', 'secondary-types': [] },
+    { id: '2', title: 'En vivo', 'first-release-date': '2020-01-01', 'primary-type': 'Album', 'secondary-types': ['Live'] },
+    { id: '3', title: 'Nuevo', 'first-release-date': '2023-02-03', 'primary-type': 'EP' },
+    { id: '4', title: 'viejo', 'first-release-date': '2016', 'primary-type': 'Album' },
+  ] });
+  assert.deepEqual(r.map((x) => x.id), ['3', '1']);
+  assert.equal(r[0].year, '2023'); assert.equal(r[0].type, 'EP');
+  assert.match(LS.coverUrl('abc', 500), /^https:\/\/coverartarchive\.org\/release-group\/abc\/front-500$/);
+});
+
+test('Catálogo: la dirección de artista se codifica y se recupera', () => {
+  const h = LS.artistHash('AC/DC & Co');
+  assert.equal(LS.artistFromParts(h.replace(/^#\//, '').split('/')), 'AC/DC & Co');
+});
+
+test('Catálogo: el limitador separa las peticiones al menos 1 s', async () => {
+  let t = 100000; const waits = [];
+  const lim = LS.makeLimiter(1000, () => t, async (ms) => { waits.push(ms); t += ms; });
+  await Promise.all([lim(async () => 'a'), lim(async () => 'b'), lim(async () => 'c')]);
+  assert.deepEqual(waits, [1000, 1000]);
 });

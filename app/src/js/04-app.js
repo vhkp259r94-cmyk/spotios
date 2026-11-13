@@ -42,6 +42,7 @@
     queue: [], index: -1, now: null, audioOnly: false,
     lyrics: null, lyricsFor: '', lyricIndex: -1,
     renderId: 0, playing: false, time: 0, duration: 0, skips: 0,
+    artist: '',
   };
   const reg = new Map();     // clave → elemento (para las tarjetas)
   const lists = new Map();   // lista → claves (la cola al pulsar una tarjeta)
@@ -152,10 +153,11 @@
   }
 
   // ---------- Navegación ----------
-  const PAGES = ['home', 'music', 'videos', 'library', 'settings'];
+  const PAGES = ['home', 'music', 'videos', 'library', 'settings', 'artist'];
   function route() {
     const parts = (location.hash.replace(/^#\/?/, '') || 'home').split('/');
     S.page = PAGES.includes(parts[0]) ? parts[0] : 'home';
+    S.artist = S.page === 'artist' ? LS.artistFromParts(parts) : '';
     S.sub = S.page === 'library' ? (parts[1] === 'downloads' ? 'downloads' : parts[1] === 'pl' && parts[2] ? 'pl:' + parts[2] : 'saved') : 'saved';
     $$('#nav [data-page]').forEach((b) => b.classList.toggle('on', b.dataset.page === S.page));
     render();
@@ -176,6 +178,7 @@
     if (S.page === 'music') return renderMusic(v, id);
     if (S.page === 'videos') return renderVideos(v, id);
     if (S.page === 'library') return renderLibrary(v, id);
+    if (S.page === 'artist') return renderArtist(v, id);
     return renderSettings(v);
   }
 
@@ -226,6 +229,7 @@
       }
       items = setList(listId, items);
       box.innerHTML = items.length ? grid(listId, items, sc === 'track' ? 'track' : 'video') : '<p class="hint">Sin resultados en YouTube.</p>';
+      if (sc === 'track' && q.length > 1) box.insertAdjacentHTML('afterbegin', `<p><button class="chip" data-act="artist" data-name="${esc(q)}">Ver la página de artista «${esc(q)}»</button></p>`);
     } catch (e) {
       if (id === S.renderId) box.innerHTML = `<p class="hint err">No se pudo buscar en YouTube: ${esc(e.message)}</p>`;
     }
@@ -291,6 +295,80 @@
       ${q ? '' : chips(LS.GENRES.map((g) => [g, g]), S.genre, 'genre')}
       <section><h2>${q ? 'Música en YouTube' : esc(S.genre)}</h2><div id="hits">${skeleton()}</div></section>`;
     await showResults('#hits', id, 'music');
+  }
+
+  // ---------- Página de artista (catálogo gratuito: MusicBrainz + Cover Art Archive) ----------
+  const mbLimit = LS.makeLimiter(1100);
+  const mbStore = safeStorage();
+  // MusicBrainz responde 503/429 si hay muchas peticiones seguidas: se espera y se reintenta hasta 3 veces
+  const mbGet = (url) => mbLimit(async () => {
+    for (let i = 0; i < 3; i++) {
+      const r = await fetch(url);
+      if (r.ok) return r.json();
+      if (r.status !== 503 && r.status !== 429) throw new Error('HTTP ' + r.status);
+      await new Promise((ok) => setTimeout(ok, 2500 * (i + 1)));
+    }
+    throw new Error('MusicBrainz está ocupado');
+  });
+  async function artistInfo(name) {
+    const k = 'ls.artist:' + LS.normName(name);
+    try { const c = JSON.parse(mbStore.getItem(k) || 'null'); if (c && Date.now() - c.t < 7 * 864e5) return c.d; } catch (e) { /* sin caché */ }
+    const a = LS.pickArtist(await mbGet(LS.artistSearchUrl(name)), name);
+    let albums = [];
+    if (a) { try { albums = LS.parseReleaseGroups(await mbGet(LS.releaseGroupsUrl(a.mbid))).slice(0, 24); } catch (e) { /* solo la ficha */ } }
+    const d = { a, albums };
+    try { mbStore.setItem(k, JSON.stringify({ t: Date.now(), d })); } catch (e) { /* sin espacio */ }
+    return d;
+  }
+
+  async function renderArtist(v, id) {
+    const name = S.artist;
+    if (!name) { go('#/music'); return; }
+    v.innerHTML = `<p><button class="chip" data-act="back">← Volver</button></p>
+      <div class="ahead"><div class="aav" id="aAv"></div><div style="min-width:0"><h1>${esc(name)}</h1><p class="hint" id="aFacts">Buscando ficha del artista…</p></div></div>
+      <div class="row-actions"><button class="primary" data-act="playartist" id="aPlay" hidden>${LS.icon('play')} Reproducir</button></div>
+      <section><h2>Canciones</h2><div id="aSongs">${skeleton(6)}</div></section>
+      <section id="aAlb" hidden><h2>Discografía</h2><div id="aAlbums"></div></section>`;
+    const songsP = (async () => {
+      try {
+        const want = LS.normName(name);
+        const all = (await musicSearch(name)).filter((m) => LS.isSong({ title: m.title, duration: m.duration }));
+        const own = all.filter((m) => LS.normName(LS.cleanArtistName(m.channel)).includes(want) || LS.normName(m.title).includes(want));
+        const items = (own.length ? own : all).slice(0, 20).map(musicItem);
+        if (id !== S.renderId) return;
+        setList('artist', items);
+        $('#aSongs').innerHTML = items.length ? grid('artist', items, 'track') : '<p class="hint">No se encontraron canciones.</p>';
+        if (items.length) { $('#aPlay').hidden = false; if (items[0].thumb) $('#aAv').style.backgroundImage = `url("${items[0].thumb}")`; }
+      } catch (e) { if (id === S.renderId) $('#aSongs').innerHTML = `<p class="hint err">No se pudo buscar: ${esc(e.message)}</p>`; }
+    })();
+    const infoP = (async () => {
+      try {
+        const { a, albums } = await artistInfo(name);
+        if (id !== S.renderId) return;
+        $('#aFacts').textContent = a
+          ? [a.type === 'Group' ? 'Grupo' : a.type === 'Person' ? 'Solista' : a.type, a.country, a.begin ? (a.type === 'Person' ? 'nacido en ' : 'desde ') + a.begin : '', a.tags.join(', ')].filter(Boolean).join(' · ')
+          : 'Sin ficha en MusicBrainz (artista pequeño o nuevo): aquí solo se muestran sus canciones.';
+        if (albums.length) {
+          $('#aAlb').hidden = false;
+          $('#aAlbums').innerHTML = `<div class="grid track">${albums.map((al) => `<button class="card track" data-act="album" data-artist="${esc(name)}" data-title="${esc(al.title)}">
+            <div class="thumb" style="--h:${hue(al.id)}"><img loading="lazy" alt="" src="${esc(LS.coverUrl(al.id, 250))}" onerror="this.remove()"></div>
+            <div class="t">${esc(al.title)}</div><div class="s">${esc([al.year, al.type === 'EP' ? 'EP' : 'Álbum'].filter(Boolean).join(' · '))}</div></button>`).join('')}</div>`;
+        }
+      } catch (e) { if (id === S.renderId) $('#aFacts').textContent = 'No se pudo cargar la ficha (sin conexión con MusicBrainz): se muestran solo las canciones.'; }
+    })();
+    await Promise.all([songsP, infoP]);
+  }
+
+  // Un álbum de la discografía: se buscan sus canciones en YouTube Music y suena la primera
+  async function playAlbum(artist, title) {
+    try {
+      const want = LS.normName(title);
+      const res = (await musicSearch(artist + ' ' + title)).filter((m) => LS.isSong({ title: m.title, duration: m.duration }));
+      const ofAlbum = res.filter((m) => m.album && LS.normName(m.album).includes(want));
+      const items = (ofAlbum.length ? ofAlbum : res).slice(0, 25).map(musicItem);
+      if (!items.length) { toast('No se encontraron canciones de «' + title + '».'); return; }
+      setList('album', items); play(items[0].key, 'album');
+    } catch (e) { toast('No se pudo abrir el álbum: ' + e.message); }
   }
 
   // ---------- Vídeos ----------
@@ -647,7 +725,8 @@
     img.onerror = () => { img.onerror = null; img.src = (it.thumb || '').replace('mqdefault', 'hqdefault'); };
     if (img.getAttribute('src') !== big) img.src = big;
     $('#npTitle').textContent = it.title;
-    $('#npSub').textContent = it.sub + (it.src === 'yt' ? ' · YouTube' : '');
+    const artistName = it.src === 'yt' && it.artist ? LS.cleanArtistName(it.artist) : '';
+    $('#npSub').innerHTML = (artistName ? `<span class="alink" data-act="artist" data-name="${esc(artistName)}">${esc(it.sub)}</span>` : esc(it.sub)) + (it.src === 'yt' ? ' · YouTube' : '');
     const saved = store.library.has(it);
     LS.setIcon($('#npHeart'), saved ? 'heartOn' : 'heart');
     $('#npHeart').classList.toggle('on', saved);
@@ -987,6 +1066,10 @@
     if (d.sub) { go(d.sub === 'saved' ? '#/library' : d.sub === 'downloads' ? '#/library/downloads' : '#/library/pl/' + d.sub.slice(3)); return; }
     switch (d.act) {
       case 'play': play(d.key, d.list); break;
+      case 'artist': go(LS.artistHash(d.name)); break;
+      case 'back': if (history.length > 1) history.back(); else go('#/music'); break;
+      case 'playartist': { const k = lists.get('artist') || []; if (k.length) play(k[0], 'artist'); break; }
+      case 'album': playAlbum(d.artist, d.title); break;
       case 'playall': { const k = lists.get('lib') || []; if (k.length) play(k[0], 'lib'); break; }
       case 'newlist': newList(false); break;
       case 'qnext': queueIt(d.key, 'next'); $('#qm').hidden = true; break;
