@@ -19,10 +19,14 @@
         const origSet = P.setActionHandler, origPos = P.setPositionState;
         const md = Object.getOwnPropertyDescriptor(P, 'metadata'), ps = Object.getOwnPropertyDescriptor(P, 'playbackState');
         const toParent = (m) => { try { window.parent.postMessage(m, '*'); } catch (e) { /* sin página padre */ } };
+        const diag = {};
+        const report = () => toParent({ lsMsDiag: Object.assign({}, diag) });
         const handlers = () => {
-          for (const a of ['play', 'pause', 'previoustrack', 'nexttrack']) { try { origSet.call(ms, a, () => toParent({ lsMsAction: a })); } catch (e) { /* no admitida */ } }
-          try { origSet.call(ms, 'seekto', (d) => toParent({ lsMsAction: 'seekto', seekTime: d && d.seekTime })); } catch (e) { /* no admitida */ }
-          for (const a of ['seekbackward', 'seekforward']) { try { origSet.call(ms, a, null); } catch (e) { /* no admitida */ } }
+          const bad = [];
+          for (const a of ['play', 'pause', 'previoustrack', 'nexttrack']) { try { origSet.call(ms, a, () => toParent({ lsMsAction: a })); } catch (e) { bad.push(a + ':' + e.message); } }
+          try { origSet.call(ms, 'seekto', (d) => toParent({ lsMsAction: 'seekto', seekTime: d && d.seekTime })); } catch (e) { bad.push('seekto:' + e.message); }
+          for (const a of ['seekbackward', 'seekforward']) { try { origSet.call(ms, a, null); } catch (e) { bad.push(a + ':' + e.message); } }
+          diag.botones = bad.length ? 'ERROR ' + bad.join(',') : 'ok';
         };
         P.setActionHandler = function () { /* las de YouTube se ignoran */ };
         P.setPositionState = function () { /* ídem */ };
@@ -33,11 +37,19 @@
           const d = e.data;
           if (!d || typeof d !== 'object') return;
           try {
-            if (d.lsMedia && md) { md.set.call(ms, new MediaMetadata(d.lsMedia)); handlers(); }
+            if (d.lsMedia && md) {
+              md.set.call(ms, new MediaMetadata(d.lsMedia)); handlers();
+              const got = md.get.call(ms);
+              diag.datos = got ? 'ok «' + String(got.title).slice(0, 18) + '»' : 'vacío';
+              const art = d.lsMedia.artwork && d.lsMedia.artwork[0] && d.lsMedia.artwork[0].src;
+              if (art) { diag.portada = 'cargando'; const im = new Image(); im.onload = () => { diag.portada = 'ok ' + im.naturalWidth + 'px'; report(); }; im.onerror = () => { diag.portada = 'ERROR al descargar'; report(); }; im.src = art; } else diag.portada = 'sin imagen';
+              report();
+            }
             if (d.lsMsState && ps) ps.set.call(ms, d.lsMsState);
             if (d.lsMsPos) origPos.call(ms, d.lsMsPos);
-          } catch (err) { /* formato no admitido */ }
+          } catch (err) { diag.datos = 'ERROR ' + err.message; report(); }
         });
+        report();
       }
     } catch (e) { /* si no se puede, queda como antes */ }
   }

@@ -546,6 +546,11 @@
   const msFrame = (msg) => { const f = document.querySelector('iframe#yt, #videoLayer iframe'); if (f && f.contentWindow) { try { f.contentWindow.postMessage(msg, '*'); } catch (e) { /* marco no listo */ } } };
   window.addEventListener('message', (e) => {
     const d = e.data, f = document.querySelector('iframe#yt, #videoLayer iframe');
+    if (d && d.lsMsDiag && f && e.source === f.contentWindow && Native.platform === 'ios') {
+      const g = d.lsMsDiag; const txt = 'Diagnóstico: datos ' + (g.datos || '?') + ' · botones ' + (g.botones || '?') + ' · portada ' + (g.portada || '?');
+      if (txt !== S.msDiagTxt) { S.msDiagTxt = txt; toast(txt, 12000); }
+      return;
+    }
     if (!d || typeof d.lsMsAction !== 'string' || !f || e.source !== f.contentWindow) return;
     if (d.lsMsAction === 'play') Player.play(); else if (d.lsMsAction === 'pause') Player.pause();
     else if (d.lsMsAction === 'nexttrack') next(); else if (d.lsMsAction === 'previoustrack') prev();
