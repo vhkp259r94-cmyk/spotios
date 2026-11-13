@@ -443,13 +443,6 @@
     keepAlive.on();
     S.now = it; S.time = 0; S.duration = it.duration || 0; S.lyrics = null; S.lyricsFor = ''; S.lyricIndex = -1;
     Player.load(resolveLocal(it), { audioOnly: S.audioOnly });
-    // Web en iPhone/iPad (Safari, Brave…): iOS no deja arrancar el vídeo de YouTube sin tocarlo. Si no suena en 2 s, se muestra el
-    // vídeo para que se toque su botón de play (la app instalada no tiene esta limitación y no entra aquí).
-    if (Native.platform === 'web' && it.src === 'yt' && /iPhone|iPad|iPod/.test(navigator.userAgent || '')) {
-      setTimeout(() => {
-        if (S.now === it && !S.playing && !S.userPause) { setVideoMode('full'); toast('Toca el botón de play del vídeo para empezar (iOS no deja arrancarlo solo en el navegador).', 6000); }
-      }, 2000);
-    }
     if (S.audioOnly) showVideo(false); else setVideoMode(videoMode() === 'pip' ? 'pip' : 'full');
     updateBar();
     if (!$('#lyrics').hidden) loadLyrics();
