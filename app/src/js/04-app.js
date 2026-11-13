@@ -617,7 +617,7 @@
   }
   function mediaSessionTick(st) {
     if (S.now && S.msSent !== S.now.key && st.playing) { S.msSent = S.now.key; S.msAck = false; msFrame({ lsMedia: LS.mediaMeta(S.now) }); }   // el marco puede crearse después
-    if (S.now && st.playing && !S.msAck && Date.now() - (S.msLast || 0) > 2000) msResend();   // sin confirmación del marco: se reintenta cada 2 s
+    if (S.now && st.playing && !S.msAck && Date.now() - (S.msLast || 0) > (S.msAck ? 8000 : 2000)) msResend();   // sin confirmación: cada 2 s; con ella, cada 8 s (al bloquear y desbloquear iOS puede volver a poner «±10 s»)
     if (mediaSessionTick.ps !== !!st.playing) { mediaSessionTick.ps = !!st.playing; msFrame({ lsMsState: st.playing ? 'playing' : 'paused' }); }
     if (msOk) {
       try {
@@ -654,7 +654,7 @@
     if (!e || e.type !== 'remote') return;
     if (e.cmd === 'play') Player.play(); else if (e.cmd === 'pause') Player.pause();
     // Al salir de la app, bloquear o desbloquear el móvil el sistema puede pausar YouTube: se reanuda solo si sonaba y no la pausó el usuario
-    else if (e.cmd === 'resume') { if (S.now && S.wantPlay && !S.userPause && !(S.duration > 0 && S.time >= S.duration - 2)) rawPlay(); }
+    else if (e.cmd === 'resume') { msResend(); if (S.now && S.wantPlay && !S.userPause && !(S.duration > 0 && S.time >= S.duration - 2)) rawPlay(); }
     else if (e.cmd === 'next') next(); else if (e.cmd === 'prev') prev();
     else if (e.cmd === 'seek' && typeof e.position === 'number') Player.seek(e.position);
   });
