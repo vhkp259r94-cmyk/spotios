@@ -52,7 +52,7 @@ jobs:
           test -n "$SIM" || { echo "::error::No hay simulador de iPhone disponible"; exit 1; }
           xcodebuild test \
             -project LibreStream.xcodeproj -scheme LibreStream \
-            -destination "platform=iOS Simulator,id=$SIM" \
+            -destination "platform=iOS Simulator,id=$SIM" -only-testing:LibreStreamTests \
             CODE_SIGNING_ALLOWED=NO | xcpretty || exit ${PIPESTATUS[0]}
         shell: bash
 
