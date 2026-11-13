@@ -1274,6 +1274,53 @@ public sealed partial class MainWindow : Window
 
     // ===================== Descargas =====================
 
+    /// <summary>Añade MP3 (u otros) que el usuario ya tiene: se leen sus etiquetas (título, artista, álbum, duración y portada) y suenan sin conexión.</summary>
+    private async void AddMusicFiles_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FileOpenPicker { SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.MusicLibrary };
+            foreach (var ext in LocalMusic.Extensions) picker.FileTypeFilter.Add(ext);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            var files = await picker.PickMultipleFilesAsync();
+            if (files is null || files.Count == 0) return;
+            var covers = Path.Combine(DataDir, "covers");
+            Directory.CreateDirectory(covers);
+            int added = 0, noTags = 0;
+            foreach (var file in files)
+            {
+                var id = LocalMusic.IdFor(file.Path);
+                var music = await file.Properties.GetMusicPropertiesAsync();
+                var title = System.Text.RegularExpressions.Regex.Replace(music.Title ?? "", @"\s+", " ").Trim();
+                var artist = System.Text.RegularExpressions.Regex.Replace(music.Artist ?? "", @"\s+", " ").Trim();
+                if (title.Length == 0) { title = LocalMusic.TitleFromFileName(file.Path); noTags++; }
+                string? art = null;
+                try
+                {
+                    using var thumb = await file.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.MusicView, 300);
+                    if (thumb is { Type: Windows.Storage.FileProperties.ThumbnailType.Image, Size: > 0 })
+                    {
+                        var png = Path.Combine(covers, id[6..] + ".img");
+                        using (var input = thumb.AsStreamForRead()) using (var output = File.Create(png)) await input.CopyToAsync(output);
+                        art = new Uri(png).AbsoluteUri;
+                    }
+                }
+                catch (Exception ex) { App.LogOnce("Portada del archivo", ex); }   // sin portada: se ve el color
+                var size = (long)(await file.GetBasicPropertiesAsync()).Size;
+                _downloads.Add(new DownloadedItem(id, title, artist, "track", file.Path, size, music.Duration.TotalSeconds, art));
+                added++;
+            }
+            LocalMusicInfo.Text = $"{added} archivo{(added == 1 ? "" : "s")} añadido{(added == 1 ? "" : "s")}."
+                + (noTags > 0 ? $" {noTags} sin etiquetas: se usa el nombre del archivo." : "") + " Suenan sin conexión; «Quitar de la lista» no borra el archivo.";
+            BuildDownloads();
+        }
+        catch (Exception ex)
+        {
+            App.LogOnce("Añadir música propia", ex);
+            LocalMusicInfo.Text = "No se pudieron añadir los archivos.";
+        }
+    }
+
     private static string FormatBytes(long bytes) =>
         bytes >= 1_000_000_000 ? $"{bytes / 1e9:0.0} GB" : bytes >= 1_000_000 ? $"{bytes / 1e6:0} MB" : $"{bytes / 1e3:0} KB";
 
@@ -1312,10 +1359,12 @@ public sealed partial class MainWindow : Window
             var done = d;
             play.Click += (_, _) =>
             {
-                if (_catalog.Items.FirstOrDefault(i => i.Id == done.Id) is { } item) { var card = new MediaCard(item); _scope = "video"; Play(card, [card]); }
+                if (LocalMusic.IsLocal(done.Id)) { var local = new MediaCard(LocalMusic.ToCatalogItem(done)); _scope = "track"; Play(local, [local]); }
+                else if (_catalog.Items.FirstOrDefault(i => i.Id == done.Id) is { } item) { var card = new MediaCard(item); _scope = "video"; Play(card, [card]); }
             };
             var remove = new Button { Content = "Eliminar" };
-            remove.Click += (_, _) => { _downloads.Remove(done.Id); BuildDownloads(); };
+            remove.Click += (_, _) => { if (LocalMusic.IsLocal(done.Id)) _downloads.Forget(done.Id); else _downloads.Remove(done.Id); BuildDownloads(); };   // la música propia solo se quita de la lista: el archivo no se borra
+            if (LocalMusic.IsLocal(done.Id)) remove.Content = "Quitar de la lista";
             actions.Children.Add(play);
             actions.Children.Add(remove);
             DownloadedHost.Children.Add(row);
@@ -1572,7 +1621,8 @@ public sealed partial class MainWindow : Window
         };
         var status = new TextBlock { TextWrapping = TextWrapping.Wrap, MinHeight = 22 };
         var bar = new ProgressBar { Visibility = Visibility.Collapsed, Minimum = 0, Maximum = 1 };
-        var panel = new StackPanel { Spacing = 10, Width = 460, Children = { url, note, bar, status } };
+        var pickFile = new Button { Content = "o elegir un archivo (CSV de Exportify, JSON de Spotify o TXT)…" };
+        var panel = new StackPanel { Spacing = 10, Width = 460, Children = { url, pickFile, note, bar, status } };
         var dialog = new ContentDialog
         {
             XamlRoot = Root.XamlRoot, Title = "Importar lista de reproducción", Content = panel,
@@ -1591,6 +1641,28 @@ public sealed partial class MainWindow : Window
             catch (OperationCanceledException) { /* cerrado a mitad: lo ya importado queda en la lista */ }
             catch (Exception ex) { App.LogOnce("Importar lista", ex); status.Text = "No se pudo importar la lista."; }
             finally { dialog.CloseButtonText = "Cerrar"; bar.Visibility = Visibility.Collapsed; }
+        };
+        pickFile.Click += async (_, _) =>
+        {
+            try
+            {
+                var picker = new Windows.Storage.Pickers.FileOpenPicker { SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary };
+                foreach (var ext in new[] { ".csv", ".json", ".txt" }) picker.FileTypeFilter.Add(ext);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+                var file = await picker.PickSingleFileAsync();
+                if (file is null) return;
+                var (lists, error) = FileImport.Parse(file.Name, await Windows.Storage.FileIO.ReadTextAsync(file));
+                if (lists is null) { status.Text = error ?? "No se pudo leer el archivo."; return; }
+                dialog.IsPrimaryButtonEnabled = false; url.IsEnabled = false; pickFile.IsEnabled = false; bar.Visibility = Visibility.Visible;
+                try
+                {
+                    foreach (var info in lists) openListId = await ImportTracksAsync(info, status, bar, cts.Token) ?? openListId;
+                }
+                catch (OperationCanceledException) { /* cerrado a mitad: lo ya importado queda en la lista */ }
+                catch (Exception ex) { App.LogOnce("Importar archivo", ex); status.Text = "No se pudo importar la lista."; }
+                finally { dialog.CloseButtonText = "Cerrar"; bar.Visibility = Visibility.Collapsed; }
+            }
+            catch (Exception ex) { App.LogOnce("Elegir archivo", ex); status.Text = "No se pudo abrir el archivo."; }
         };
         dialog.Closing += (_, _) => cts.Cancel();
         await dialog.ShowAsync();
@@ -1615,6 +1687,12 @@ public sealed partial class MainWindow : Window
             status.Text = "No se encontraron canciones. La lista debe ser pública, y el servicio puede haber cambiado su página.";
             return null;
         }
+        return await ImportTracksAsync(info, status, bar, ct);
+    }
+
+    /// <summary>Crea una lista con esas canciones y busca cada una en YouTube Music por lotes de 24 (3 a la vez). Devuelve el id de la lista creada.</summary>
+    private async Task<string?> ImportTracksAsync(ImportInfo info, TextBlock status, ProgressBar bar, CancellationToken ct)
+    {
         var list = _playlists.Create(string.IsNullOrWhiteSpace(info.Name) ? "Lista importada" : info.Name);
         var total = info.Tracks.Count;
         int done = 0, found = 0;

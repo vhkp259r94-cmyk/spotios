@@ -52,6 +52,14 @@ public sealed class DownloadStore
         Save();
     }
 
+    /// <summary>Quita del registro SIN borrar el archivo (música propia del usuario).</summary>
+    public void Forget(string id)
+    {
+        if (Find(id) is not { } item) return;
+        _items.Remove(item);
+        Save();
+    }
+
     private void Save() => File.WriteAllText(_file, JsonSerializer.Serialize(_items, Json));
 }
 
