@@ -39,6 +39,7 @@
           try {
             if (d.lsMedia && md) {
               md.set.call(ms, new MediaMetadata(d.lsMedia)); handlers();
+              toParent({ lsMsAck: true });   // la página sabe que sus datos y botones ya están puestos
               const got = md.get.call(ms);
               diag.datos = got ? 'ok «' + String(got.title).slice(0, 18) + '»' : 'vacío';
               const art = d.lsMedia.artwork && d.lsMedia.artwork[0] && d.lsMedia.artwork[0].src;
@@ -50,6 +51,7 @@
           } catch (err) { diag.datos = 'ERROR ' + err.message; report(); }
         });
         report();
+        toParent({ lsMsHello: true });   // el marco ya está listo: la página (re)envía los datos de la canción
       }
     } catch (e) { /* si no se puede, queda como antes */ }
   }

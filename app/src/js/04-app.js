@@ -586,13 +586,29 @@
   window.addEventListener('message', (e) => {
     const d = e.data, f = document.querySelector('iframe#yt, #videoLayer iframe');
     if (d && d.lsMsDiag) return;   // diagnóstico del marco de YouTube: ya no se muestra
+    if (d && f && e.source === f.contentWindow && (d.lsMsAck || d.lsMsHello)) {
+      // Hello: el marco acaba de cargarse y puede haber perdido lo enviado antes. Ack: ya tiene los datos y botones de Nsound.
+      if (d.lsMsAck) S.msAck = true; else { S.msAck = false; msResend(); }
+      return;
+    }
     if (!d || typeof d.lsMsAction !== 'string' || !f || e.source !== f.contentWindow) return;
     if (d.lsMsAction === 'play') Player.play(); else if (d.lsMsAction === 'pause') Player.pause();
     else if (d.lsMsAction === 'nexttrack') next(); else if (d.lsMsAction === 'previoustrack') prev();
     else if (d.lsMsAction === 'seekto' && typeof d.seekTime === 'number') Player.seek(d.seekTime);
   });
+  // Reenvía al marco de YouTube los datos de la canción y el estado (si el marco se creó o recargó después del primer envío no los recibió,
+  // y entonces iOS enseñaba «±10 s» hasta pulsar anterior o siguiente)
+  function msResend() {
+    if (!S.now) return;
+    S.msLast = Date.now();
+    msFrame({ lsMedia: LS.mediaMeta(S.now) });
+    msFrame({ lsMsState: S.playing ? 'playing' : 'paused' });
+    const pos = LS.mediaPosition(S.time, S.duration);
+    if (pos) msFrame({ lsMsPos: pos });
+  }
   function mediaSessionSet(it) {
     const m = LS.mediaMeta(it);
+    S.msAck = false; S.msLast = Date.now();
     S.msSent = it.key; msFrame({ lsMedia: m });
     if (msOk) {
       try { navigator.mediaSession.metadata = new MediaMetadata(m); } catch (e) { /* formato no admitido */ }
@@ -600,7 +616,8 @@
     if (Native.platform !== 'web' && Native.platform !== 'ios') Native.call('nowPlaying', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: it.duration || 0, position: 0, playing: true }).catch(() => {});
   }
   function mediaSessionTick(st) {
-    if (S.now && S.msSent !== S.now.key && st.playing) { S.msSent = S.now.key; msFrame({ lsMedia: LS.mediaMeta(S.now) }); }   // el marco puede crearse después
+    if (S.now && S.msSent !== S.now.key && st.playing) { S.msSent = S.now.key; S.msAck = false; msFrame({ lsMedia: LS.mediaMeta(S.now) }); }   // el marco puede crearse después
+    if (S.now && st.playing && !S.msAck && Date.now() - (S.msLast || 0) > 2000) msResend();   // sin confirmación del marco: se reintenta cada 2 s
     if (mediaSessionTick.ps !== !!st.playing) { mediaSessionTick.ps = !!st.playing; msFrame({ lsMsState: st.playing ? 'playing' : 'paused' }); }
     if (msOk) {
       try {
