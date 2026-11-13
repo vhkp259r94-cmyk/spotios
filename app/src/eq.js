@@ -8,6 +8,21 @@
   // Segundo plano: el reproductor de YouTube se pausa solo cuando la página pasa a «oculta» (pantalla bloqueada o app en segundo
   // plano). Aquí se le indica que sigue visible y se descartan los avisos de cambio de visibilidad, como hace la
   // «reproducción en segundo plano» de Brave. Solo afecta al marco de YouTube; la interfaz de Nsound no se toca.
+  // Pantalla de bloqueo y cascos: el reproductor de YouTube registra su propia sesión multimedia (con «±10 s» y sus datos) y puede
+  // mandar sobre la de Nsound. Aquí se desactiva solo dentro del marco de YouTube: en pantalla de bloqueo, cascos y Centro de control
+  // quedan únicamente los botones de Nsound (anterior, siguiente, play y pausa).
+  if (!window.__lsMsOff) {
+    window.__lsMsOff = true;
+    try {
+      const P = window.MediaSession && window.MediaSession.prototype;
+      if (P) {
+        P.setActionHandler = function () { /* ignorado */ };
+        Object.defineProperty(P, 'metadata', { configurable: true, get: () => null, set: () => {} });
+        Object.defineProperty(P, 'playbackState', { configurable: true, get: () => 'none', set: () => {} });
+        if (typeof P.setPositionState === 'function') P.setPositionState = function () { /* ignorado */ };
+      }
+    } catch (e) { /* si no se puede, queda como antes */ }
+  }
   if (!window.__lsKeepAlive) {
     window.__lsKeepAlive = true;
     try {
