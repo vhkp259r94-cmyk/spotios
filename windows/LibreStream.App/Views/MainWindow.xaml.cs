@@ -429,7 +429,12 @@ public sealed partial class MainWindow : Window
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, $"Artista {name}: ver canciones y discografía");
             button.Click += Artist_Click;
             ArtistsRow.Children.Add(button);
-            circles[name] = circle;
+            if (ArtistCatalog.KnownCovers.TryGetValue(name, out var rg))
+            {
+                circle.Background = new ImageBrush { ImageSource = new BitmapImage(new Uri(ArtistCatalog.CoverUrl(rg))), Stretch = Stretch.UniformToFill };
+                circle.Child = null;
+            }
+            else circles[name] = circle;   // los que no están resueltos se buscan después
         }
         _ = LoadArtistCoversAsync(circles);
     }
