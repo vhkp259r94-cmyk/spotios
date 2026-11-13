@@ -92,10 +92,22 @@ y la app deja de abrirse, y pasas tus datos por terceros que no controlas.
 
 ## Qué esperar en el móvil (versión de pruebas)
 
-- Las apps móviles se han compilado y probado en un emulador y un simulador, pero **no en un teléfono real**:
+- Las apps móviles se han probado en móviles reales y en un emulador, pero es una versión de pruebas:
   puede haber fallos. Si ves uno, apunta en qué pantalla estabas y qué texto de error aparece.
 - Si YouTube no devuelve resultados, la pantalla muestra el motivo en rojo.
-- El sonido **con la pantalla apagada** puede cortarse en el iPhone: YouTube puede pausar su reproductor en segundo plano (la app intenta reanudar). En Android hay una notificación de reproducción que lo mantiene.
+
+### Segundo plano y pantalla bloqueada (iPhone y Android)
+
+- **Micro pausa al salir o bloquear.** Al salir de la app, apagar la pantalla o desbloquear, el sistema puede pausar por un instante el reproductor
+  de YouTube (va incrustado y el sistema lo trata como un vídeo). Nsound lo reanuda solo con varios intentos seguidos, así que puede notarse
+  un corte de aproximadamente un segundo. Es una limitación del sistema con el reproductor oficial de YouTube, no un fallo que se pueda quitar del todo.
+- **Si pausas tú, no se reanuda.** Lo que pausas en la app, en la pantalla de bloqueo o con los cascos se respeta.
+- **iPhone: la pantalla de bloqueo en pausa.** Mientras suena, el reproductor de la pantalla de bloqueo lo da YouTube; en pausa lo sostiene la propia
+  app con el título, la portada y los botones de anterior y siguiente. Si la música lleva **mucho rato en pausa** y el móvil bloqueado, **iOS cierra la
+  app** para ahorrar batería (la deja dormida y luego la termina): entonces el reproductor desaparece o los botones tardan, y hay que abrir Nsound para seguir.
+  Esto lo decide iOS y no se puede evitar con una app que no es de la tienda.
+- **Android:** una notificación de reproducción mantiene la música con la pantalla apagada. Si cierras Nsound desde las apps recientes, se para a propósito.
+  Algunos móviles con ahorro de batería agresivo pueden cerrarla igualmente: en ese caso quita la restricción de batería para Nsound.
 - El **ecualizador** y las **descargas sin conexión** son lo menos probado.
 - YouTube no se descarga: solo se reproduce con su reproductor oficial. Las descargas son del contenido libre
   (Creative Commons).
