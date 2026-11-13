@@ -16,8 +16,7 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
                               WKNavigationDelegate, WKUIDelegate, URLSessionDownloadDelegate {
 
     /// Origen https ficticio: el reproductor de YouTube exige un origen https para incrustarse.
-    // Origen real (GitHub Pages del proyecto): YouTube rechaza (error 150) las canciones de discográficas si la página que incrusta tiene un dominio inexistente
-    private let pageOrigin = URL(string: "https://vhkp259r94-cmyk.github.io/spotios/")!
+    private let pageOrigin = URL(string: "https://app.librestream/")!
     private let fetchHosts: Set<String> = ["www.youtube.com", "lrclib.net", "vhkp259r94-cmyk.github.io",
                                                  "open.spotify.com", "api.deezer.com", "music.apple.com", "soundcloud.com"]
     private let userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
