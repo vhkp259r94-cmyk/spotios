@@ -249,7 +249,7 @@
                         <StackPanel x:Name="DownloadsSection" Spacing="10" Visibility="Collapsed">
                             <TextBlock Text="Descargado" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
                             <TextBlock x:Name="DownloadsEmpty" Opacity="0.7" Margin="8,0,0,0" TextWrapping="Wrap"
-                                       Text="Todavía no has descargado nada. Elige algo de la lista de abajo." />
+                                       Text="Todavía no has añadido nada. Usa el botón de abajo para añadir tus archivos de música." />
                             <Button Click="AddMusicFiles_Click" Margin="8,0,0,0" AutomationProperties.Name="Añadir mis archivos de música">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon Glyph="&#xE8B7;" FontSize="14" />
@@ -258,10 +258,6 @@
                             </Button>
                             <TextBlock x:Name="LocalMusicInfo" Opacity="0.7" Margin="8,0,0,0" TextWrapping="Wrap" />
                             <StackPanel x:Name="DownloadedHost" Spacing="6" />
-                            <TextBlock Text="Contenido libre para descargar" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,16,0,0" />
-                            <TextBlock Opacity="0.7" Margin="8,0,0,0" TextWrapping="Wrap"
-                                       Text="Películas y cortos con licencia Creative Commons: puedes guardarlos y verlos sin conexión. YouTube no permite descargar sus vídeos, por eso aquí solo aparece contenido libre." />
-                            <StackPanel x:Name="AvailableHost" Spacing="6" />
                         </StackPanel>
 
                         <StackPanel x:Name="SettingsSection" Spacing="22" Visibility="Collapsed" MaxWidth="820" HorizontalAlignment="Left" Margin="8,0,0,0">

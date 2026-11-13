@@ -1351,7 +1351,6 @@ public sealed partial class MainWindow : Window
     private void BuildDownloads()
     {
         DownloadedHost.Children.Clear();
-        AvailableHost.Children.Clear();
         foreach (var d in _downloads.Items)
         {
             var row = MakeRow(d.Title, $"{d.Artist} · {MediaCard.Format(TimeSpan.FromSeconds(d.DurationSec))} · {FormatBytes(d.Bytes)}", d.ArtworkUrl, out var actions);
@@ -1371,19 +1370,6 @@ public sealed partial class MainWindow : Window
         }
         DownloadsEmpty.Visibility = Vis(_downloads.Items.Count == 0);
 
-        foreach (var item in _catalog.Items.Where(i => _downloads.Find(i.Id) is null))
-        {
-            var row = MakeRow(item.Title, $"{item.Artist} · {MediaCard.Format(TimeSpan.FromSeconds(item.DurationSec))} · {item.License.Spdx}", item.ArtworkUrl?.AbsoluteUri, out var actions);
-            var bar = new ProgressBar { Width = 130, Minimum = 0, Maximum = 100, Visibility = Visibility.Collapsed };
-            var button = new Button { Content = "Descargar" };
-            var target = item;
-            button.Click += async (_, _) => await DownloadAsync(target, button, bar);
-            actions.Children.Add(bar);
-            actions.Children.Add(button);
-            AvailableHost.Children.Add(row);
-        }
-        if (AvailableHost.Children.Count == 0)
-            AvailableHost.Children.Add(new TextBlock { Text = "Ya has descargado todo el contenido libre disponible.", Opacity = 0.7, Margin = new Thickness(8, 0, 0, 0) });
     }
 
     private async Task DownloadAsync(CatalogItem item, Button button, ProgressBar bar)
