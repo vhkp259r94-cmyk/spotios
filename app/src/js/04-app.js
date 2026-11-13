@@ -636,6 +636,8 @@
   Native.onEvent((e) => {
     if (!e || e.type !== 'remote') return;
     if (e.cmd === 'play') Player.play(); else if (e.cmd === 'pause') Player.pause();
+    // Al salir de la app, bloquear o desbloquear el móvil el sistema puede pausar YouTube: se reanuda solo si sonaba y no la pausó el usuario
+    else if (e.cmd === 'resume') { if (S.now && S.wantPlay && !S.userPause && !(S.duration > 0 && S.time >= S.duration - 2)) rawPlay(); }
     else if (e.cmd === 'next') next(); else if (e.cmd === 'prev') prev();
     else if (e.cmd === 'seek' && typeof e.position === 'number') Player.seek(e.position);
   });
@@ -702,8 +704,8 @@
 
   // Si el sistema pausa la música al bloquear el móvil (sin que el usuario haya pausado), se reanuda sola (hasta 3 veces por canción)
   const rawPause = Player.pause.bind(Player), rawPlay = Player.play.bind(Player);
-  Player.pause = () => { S.userPause = true; keepAlive.off(); rawPause(); };
-  Player.play = () => { S.userPause = false; keepAlive.on(); rawPlay(); };
+  Player.pause = () => { S.userPause = true; S.wantPlay = false; keepAlive.off(); rawPause(); };
+  Player.play = () => { S.userPause = false; S.wantPlay = true; keepAlive.on(); rawPlay(); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) S.hiddenAt = Date.now(); });
   function autoResume(st) {
     if (st.playing) { if (st.time > 6) S.resumeTries = 0; return; }
@@ -715,6 +717,7 @@
   }
 
   Player.on('state', (st) => {
+    if (st.playing && !S.userPause) S.wantPlay = true;
     S.playing = st.playing; S.time = st.time; if (st.duration > 0) S.duration = st.duration;
     mediaSessionTick(st);
     autoResume(st);

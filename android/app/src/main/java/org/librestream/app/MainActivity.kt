@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.ValueCallback
@@ -183,7 +185,30 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
     }
 
+    private val lifecycleHandler = Handler(Looper.getMainLooper())
+
+    /** Al salir, apagar la pantalla o desbloquear, el sistema puede pausar el reproductor de YouTube: se pide a la interfaz que reanude (solo si sonaba y no la pausó el usuario). */
+    private fun resumeSoon() {
+        lifecycleHandler.removeCallbacksAndMessages(null)
+        for (delay in longArrayOf(400, 1500, 3500, 6000)) {
+            lifecycleHandler.postDelayed({
+                if (::web.isInitialized) web.evaluateJavascript("window.__nativeEvent && window.__nativeEvent({type:'remote',cmd:'resume'})", null)
+            }, delay)
+        }
+    }
+
+    override fun onPause() { super.onPause(); resumeSoon() }
+
+    override fun onStop() {
+        super.onStop()
+        if (::web.isInitialized) web.resumeTimers()      // que la página siga ejecutándose con la pantalla apagada
+        resumeSoon()
+    }
+
+    override fun onStart() { super.onStart(); resumeSoon() }
+
     override fun onDestroy() {
+        lifecycleHandler.removeCallbacksAndMessages(null)
         PlaybackService.listener = null
         PlaybackService.stop(this)
         web.destroy()
