@@ -186,6 +186,17 @@
     return `<div class="chips">${items.map(([val, label]) => `<button class="chip ${val === current ? 'on' : ''}" data-${attr}="${esc(val)}">${esc(label)}</button>`).join('')}</div>`;
   }
 
+  // ---------- Artistas de la semana (lista fija que rota cada semana; sin servicio externo) ----------
+  const TOP_ARTISTS = ['Bad Bunny', 'Taylor Swift', 'Karol G', 'The Weeknd', 'Shakira', 'Feid', 'Drake', 'Rosalía', 'Peso Pluma', 'Dua Lipa',
+    'Billie Eilish', 'Quevedo', 'Ed Sheeran', 'Rauw Alejandro', 'Bruno Mars', 'Anuel AA', 'Coldplay', 'Mora', 'Olivia Rodrigo', 'J Balvin',
+    'Daddy Yankee', 'Ariana Grande', 'Myke Towers', 'Imagine Dragons', 'Maluma', 'Harry Styles', 'Aitana', 'Lola Índigo', 'Morad', 'Eminem'];
+  function topArtistsHtml() {
+    const week = Math.floor(Date.now() / (7 * 864e5)), n = TOP_ARTISTS.length, start = (week * 7) % n;
+    const list = Array.from({ length: 12 }, (_, i) => TOP_ARTISTS[(start + i) % n]);
+    return `<section><h2>Artistas de la semana</h2><div class="shelf artists">${list.map((a) => `<button class="aitem" data-act="artist" data-name="${esc(a)}">
+      <span class="aav" style="background:linear-gradient(135deg,hsl(${hue(a)} 70% 50%),#2a2a38)">${esc(a.trim()[0])}</span><span class="an">${esc(a)}</span></button>`).join('')}</div></section>`;
+  }
+
   // ---------- Inicio ----------
   async function renderHome(v, id) {
     const q = S.query, sc = S.scope;
@@ -193,6 +204,7 @@
     v.innerHTML = `<h1>${greet}</h1>${chips([['all', 'Todo'], ['track', 'Música'], ['video', 'Vídeos']], sc, 'scope')}
       ${q ? `<p class="hint">${sc === 'track' ? 'Canciones' : sc === 'video' ? 'Vídeos' : 'Resultados'} para «${esc(q)}».</p>` : ''}
       <section id="hero" class="hero" hidden></section>
+      ${q ? '' : topArtistsHtml()}
       <section><h2 id="hitsTitle">${q ? 'Resultados en YouTube' : sc === 'track' ? 'Canciones del momento' : sc === 'video' ? 'Videoclips del momento' : 'Éxitos del momento'}</h2>
       <div id="hits">${skeleton()}</div></section>
       <section id="recentRow" hidden><h2>Seguir escuchando</h2><div id="recentGrid"></div></section>
