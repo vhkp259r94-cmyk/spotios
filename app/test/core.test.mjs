@@ -460,3 +460,8 @@ test('Catálogo: el limitador separa las peticiones al menos 1 s', async () => {
   await Promise.all([lim(async () => 'a'), lim(async () => 'b'), lim(async () => 'c')]);
   assert.deepEqual(waits, [1000, 1000]);
 });
+
+test('recentQuery: cada género pide lo nuevo del año', () => {
+  for (const g of LS.GENRES) assert.match(LS.recentQuery(g, 2026), /2026/, g);
+  assert.notEqual(LS.recentQuery('Reggaetón', 2026), LS.recentQuery('Rock', 2026));
+});

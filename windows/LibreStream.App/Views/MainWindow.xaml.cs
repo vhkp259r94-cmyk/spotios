@@ -361,6 +361,18 @@ public sealed partial class MainWindow : Window
                 if (results is { Count: 0 }) results = null;   // si YouTube Music no da nada, se usa la búsqueda normal
             }
             results ??= await YouTubeSearch.SearchAsync(_http, query, cts.Token, videosOnly: true);
+            if (typed.Length == 0 && scope != "video")
+            {
+                // Sin búsqueda: primero lo publicado esta semana del género (se actualiza solo), después el fondo de catálogo
+                try
+                {
+                    var fresh = (await YouTubeSearch.SearchAsync(_http, YouTubeMusic.RecentQuery(kind == "track" ? _genre : "Éxitos", DateTime.Now.Year), cts.Token, thisWeek: true))
+                        .Where(v => ContentFilter.IsSong(v) && !v.IsLive && v.DurationSec <= 480).Take(8).ToList();
+                    var seen = fresh.Select(v => v.Id).ToHashSet();
+                    results = fresh.Concat(results.Where(v => !seen.Contains(v.Id))).ToList();
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException) { App.LogOnce("Novedades del género", ex); }
+            }
             if (cts.IsCancellationRequested || kind != _kind || scope != Scope) return;
             results = scope == "track" ? results.Where(ContentFilter.IsSong).ToList()
                 : scope == "video" ? results.Where(ContentFilter.IsVideo).ToList()
@@ -398,6 +410,7 @@ public sealed partial class MainWindow : Window
     {
         if (_artistsBuilt) return;
         _artistsBuilt = true;
+        var circles = new Dictionary<string, Border>();
         foreach (var name in ArtistCatalog.WeeklyArtists(DateTime.UtcNow))
         {
             var h = Math.Abs(name.Aggregate(17, (a, c) => a * 31 + c)) % 360;
@@ -416,6 +429,29 @@ public sealed partial class MainWindow : Window
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, $"Artista {name}: ver canciones y discografía");
             button.Click += Artist_Click;
             ArtistsRow.Children.Add(button);
+            circles[name] = circle;
+        }
+        _ = LoadArtistCoversAsync(circles);
+    }
+
+    /// <summary>La foto de cada artista es la portada de uno de sus discos; mientras llega se ve la inicial.</summary>
+    private async Task LoadArtistCoversAsync(Dictionary<string, Border> circles)
+    {
+        foreach (var (name, circle) in circles)
+        {
+            try
+            {
+                var albums = await ArtistCatalog.FetchDiscographyAsync(_http, name, default);
+                foreach (var album in albums.Take(4))
+                {
+                    using var probe = await _http.GetAsync(album.CoverUrl, HttpCompletionOption.ResponseHeadersRead);
+                    if (!probe.IsSuccessStatusCode) continue;   // ese disco no tiene portada: se prueba el siguiente
+                    circle.Background = new ImageBrush { ImageSource = new BitmapImage(new Uri(album.CoverUrl)), Stretch = Stretch.UniformToFill };
+                    circle.Child = null;
+                    break;
+                }
+            }
+            catch (Exception ex) { App.LogOnce("Foto de artista", ex); }   // sin ficha o sin conexión: se queda la inicial
         }
     }
 

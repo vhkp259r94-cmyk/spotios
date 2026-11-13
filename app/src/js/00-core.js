@@ -143,6 +143,20 @@ var LS = globalThis.LS = globalThis.LS || {};
     }
   };
 
+  /** Búsqueda de lo recién publicado (últimos 7 días en YouTube) de un género: se muestra antes que el fondo de catálogo. */
+  LS.recentQuery = function (genre, year) {
+    switch (genre) {
+      case 'Reggaetón': return 'reggaeton nuevo video oficial ' + year;
+      case 'Pop': return 'pop new official music video ' + year;
+      case 'Rock': return 'rock new official video ' + year;
+      case 'Electrónica': return 'electronic dance new official video ' + year;
+      case 'Hip hop': return 'hip hop rap new official video ' + year;
+      case 'Latino': return 'latino nuevo video oficial ' + year;
+      case 'Lo-fi': return 'lofi new music ' + year;
+      default: return 'nuevo lanzamiento oficial video musical ' + year;
+    }
+  };
+
   /** Respuesta de YouTube Music → [{ id, title, channel (artista), album, duration, art }] */
   LS.parseYtMusic = function (json) {
     let data;

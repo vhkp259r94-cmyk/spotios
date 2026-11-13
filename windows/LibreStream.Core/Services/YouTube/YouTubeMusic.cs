@@ -34,6 +34,19 @@ public static partial class YouTubeMusic
         _ => genre,
     };
 
+    /// <summary>Búsqueda de lo publicado esta semana de un género (se muestra antes que el fondo de catálogo).</summary>
+    public static string RecentQuery(string genre, int year) => genre switch
+    {
+        "Reggaetón" => $"reggaeton nuevo video oficial {year}",
+        "Pop" => $"pop new official music video {year}",
+        "Rock" => $"rock new official video {year}",
+        "Electrónica" => $"electronic dance new official video {year}",
+        "Hip hop" => $"hip hop rap new official video {year}",
+        "Latino" => $"latino nuevo video oficial {year}",
+        "Lo-fi" => $"lofi new music {year}",
+        _ => $"nuevo lanzamiento oficial video musical {year}",
+    };
+
     public static string SearchBody(string query) => JsonSerializer.Serialize(new
     {
         context = new { client = new { clientName = "WEB_REMIX", clientVersion = "1.20241106.01.00", hl = "es", gl = "ES" } },

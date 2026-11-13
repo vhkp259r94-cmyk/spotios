@@ -197,6 +197,23 @@
       <span class="aav" style="background:linear-gradient(135deg,hsl(${hue(a)} 70% 50%),#2a2a38)">${esc(a.trim()[0])}</span><span class="an">${esc(a)}</span></button>`).join('')}</div></section>`;
   }
 
+  // La foto de cada artista es la portada de uno de sus discos (MusicBrainz + Cover Art Archive, con caché de 7 días); mientras tanto, la inicial
+  const imageOk = (url) => new Promise((res) => { const im = new Image(); im.onload = () => res(true); im.onerror = () => res(false); im.src = url; });
+  async function loadArtistCovers(id) {
+    for (const b of document.querySelectorAll('.aitem')) {
+      if (id !== S.renderId) return;
+      const av = b.querySelector('.aav');
+      try {
+        const { albums } = await artistInfo(b.dataset.name);
+        for (const al of albums.slice(0, 4)) {
+          const url = LS.coverUrl(al.id, 250);
+          if (id !== S.renderId) return;
+          if (await imageOk(url)) { av.style.backgroundImage = `url("${url}")`; av.style.backgroundSize = "cover"; av.style.backgroundPosition = "center"; av.textContent = ''; break; }
+        }
+      } catch (e) { /* sin ficha o sin conexión: se queda la inicial */ }
+    }
+  }
+
   // ---------- Inicio ----------
   async function renderHome(v, id) {
     const q = S.query, sc = S.scope;
@@ -209,7 +226,7 @@
       ${q ? '' : topArtistsHtml()}
       <section id="recentRow" hidden><h2>Seguir escuchando</h2><div id="recentGrid"></div></section>
       <section id="savedRow" hidden><h2>De tu biblioteca</h2><div id="savedGrid"></div></section>`;
-    if (!q) { renderHero(); setTimeout(() => loadReleases(id), 1500); }
+    if (!q) { renderHero(); setTimeout(() => loadReleases(id), 1500); setTimeout(() => loadArtistCovers(id), 800); }
     const recent = recentList().map(savedItem);
     if (!q && recent.length) { $('#recentRow').hidden = false; $('#recentGrid').innerHTML = `<div class="shelf">${setList('home-recent', recent) && recent.map((i, n) => card(i, 'home-recent', 'video', n)).join('')}</div>`; }
     const saved = store.library.items().slice(0, 8).map(savedItem);
@@ -223,6 +240,12 @@
     try {
       let list, items;
       if (q.length === 1) { box.innerHTML = '<p class="hint">Escribe al menos dos letras.</p>'; return; }
+      // Sin búsqueda: primero lo publicado esta semana del género (se actualiza solo), después el fondo de catálogo
+      let recent = [];
+      if (!q) {
+        try { recent = (await ytSearch(LS.recentQuery(S.page === 'music' ? S.genre : LS.GENRES[0], new Date().getFullYear()), { thisWeek: true })).filter((v) => LS.isSong(v) && !LS.isLive(v) && v.duration <= 480).slice(0, 8); } catch (e) { recent = []; }
+      }
+      const withRecent = (arr, mk) => { const ids = new Set(recent.map((v) => v.id)); return recent.map(mk).concat(arr.filter((x) => !ids.has(x.id))); };
       if (sc === 'track') {
         try {
           const songs = await musicSearch(q || LS.genreQuery(S.page === 'music' ? S.genre : LS.GENRES[0], new Date().getFullYear()));
@@ -235,9 +258,10 @@
       else if (S.page === 'music' && S.genre !== LS.GENRES[0]) list = await ytSearch(S.genre + ' official music video', { videosOnly: true });
       else list = await ytSearch('official music video ' + new Date().getFullYear(), { videosOnly: true });
       if (id !== S.renderId) return;
+      if (items && recent.length) items = withRecent(items, (v) => ytItem(v));
       if (!items) {
         list = sc === 'track' ? list.filter(LS.isSong) : sc === 'video' ? list.filter(LS.isVideo) : (q ? list.filter((x) => !LS.isLive(x)) : list.filter(LS.isSong));
-        items = list.map(ytItem);
+        items = (recent.length ? withRecent(list, (v) => v) : list).map(ytItem);
       }
       items = setList(listId, items);
       box.innerHTML = items.length ? grid(listId, items, sc === 'track' ? 'track' : 'video') : '<p class="hint">Sin resultados en YouTube.</p>';
