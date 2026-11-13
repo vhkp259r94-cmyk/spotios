@@ -1,6 +1,7 @@
 import Foundation
 import MediaPlayer
 import UIKit
+import AVFoundation
 
 /// Pantalla de bloqueo y Centro de control de iOS: título, artista, carátula cuadrada, barra de tiempo y los botones
 /// anterior / siguiente (sin «±10 s»). La interfaz web envía los datos; los botones vuelven a ella como eventos.
@@ -21,23 +22,23 @@ final class NowPlayingBridge {
         configured = true
         let c = MPRemoteCommandCenter.shared()
         c.playCommand.isEnabled = true
-        c.playCommand.addTarget { [weak self] _ in if self?.holding == true { self?.onCommand?(["cmd": "play"]) }; return .success }
+        c.playCommand.addTarget { [weak self] _ in self?.sendHeld(["cmd": "play"]); return .success }
         c.pauseCommand.isEnabled = true
-        c.pauseCommand.addTarget { [weak self] _ in if self?.holding == true { self?.onCommand?(["cmd": "pause"]) }; return .success }
+        c.pauseCommand.addTarget { [weak self] _ in self?.sendHeld(["cmd": "pause"]); return .success }
         c.togglePlayPauseCommand.isEnabled = true
         c.togglePlayPauseCommand.addTarget { [weak self] _ in
-            if self?.holding == true { self?.onCommand?(["cmd": (self?.playing ?? false) ? "pause" : "play"]) }; return .success
+            self?.sendHeld(["cmd": (self?.playing ?? false) ? "pause" : "play"]); return .success
         }
         c.nextTrackCommand.isEnabled = true
-        c.nextTrackCommand.addTarget { [weak self] _ in if self?.holding == true { self?.onCommand?(["cmd": "next"]) }; return .success }
+        c.nextTrackCommand.addTarget { [weak self] _ in self?.sendHeld(["cmd": "next"]); return .success }
         c.previousTrackCommand.isEnabled = true
-        c.previousTrackCommand.addTarget { [weak self] _ in if self?.holding == true { self?.onCommand?(["cmd": "prev"]) }; return .success }
+        c.previousTrackCommand.addTarget { [weak self] _ in self?.sendHeld(["cmd": "prev"]); return .success }
         c.skipForwardCommand.isEnabled = false
         c.skipBackwardCommand.isEnabled = false
         c.changePlaybackPositionCommand.isEnabled = true
         c.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            if self?.holding == true { self?.onCommand?(["cmd": "seek", "position": e.positionTime]) }
+            self?.sendHeld(["cmd": "seek", "position": e.positionTime])
             return .success
         }
     }
@@ -58,6 +59,29 @@ final class NowPlayingBridge {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         MPNowPlayingInfoCenter.default().playbackState = playing ? .playing : .paused
         loadArtwork(artwork)
+    }
+
+    private var wakeTask: UIBackgroundTaskIdentifier = .invalid
+
+    /// En pausa iOS puede tener la app dormida: antes de pasar la orden se pide tiempo en segundo plano y se reactiva la sesión de audio,
+    /// para que la canción nueva (siguiente / anterior / reproducir) pueda empezar sin abrir la app.
+    private func sendHeld(_ command: [String: Any]) {
+        guard holding else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if self.wakeTask != .invalid { UIApplication.shared.endBackgroundTask(self.wakeTask) }
+            self.wakeTask = UIApplication.shared.beginBackgroundTask(withName: "nsound.command") { [weak self] in
+                guard let self = self else { return }
+                UIApplication.shared.endBackgroundTask(self.wakeTask); self.wakeTask = .invalid
+            }
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try? AVAudioSession.sharedInstance().setActive(true)
+            self.onCommand?(command)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in
+                guard let self = self, self.wakeTask != .invalid else { return }
+                UIApplication.shared.endBackgroundTask(self.wakeTask); self.wakeTask = .invalid
+            }
+        }
     }
 
     /// En pausa YouTube suelta su sesión y iOS quita el reproductor al cabo de unos segundos: la app lo sostiene con los datos de Nsound.
