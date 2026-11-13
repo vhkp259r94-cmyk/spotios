@@ -19,7 +19,7 @@ targets:
     platform: iOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: org.librestream.LibreStream.prueba   # otra app: no se mezcla con la que ya tienes instalada
+        PRODUCT_BUNDLE_IDENTIFIER: org.librestream.LibreStream.pausa   # otra app: no se mezcla con la que ya tienes instalada
     sources:
       - LibreStream
       - path: ../app/dist      # interfaz compartida (se genera con: node app/build.mjs)
@@ -28,7 +28,7 @@ targets:
     info:
       path: LibreStream/Resources/Info.plist
       properties:
-        CFBundleDisplayName: Nsound Prueba
+        CFBundleDisplayName: Nsound Pausa
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}

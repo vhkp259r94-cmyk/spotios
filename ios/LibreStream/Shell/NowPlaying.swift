@@ -10,6 +10,7 @@ final class NowPlayingBridge {
 
     private var info: [String: Any] = [:]
     private var configured = false
+    private var holding = false   // true solo mientras está en pausa: sonando manda el reproductor de YouTube
     private var playing = false
     private var artworkURL = ""
     private var artworkObject: MPMediaItemArtwork?
@@ -20,23 +21,24 @@ final class NowPlayingBridge {
         configured = true
         let c = MPRemoteCommandCenter.shared()
         c.playCommand.isEnabled = true
-        c.playCommand.addTarget { [weak self] _ in self?.onCommand?(["cmd": "play"]); return .success }
+        c.playCommand.addTarget { [weak self] _ in if self?.holding == true { self?.onCommand?(["cmd": "play"]) }; return .success }
         c.pauseCommand.isEnabled = true
-        c.pauseCommand.addTarget { [weak self] _ in self?.onCommand?(["cmd": "pause"]); return .success }
+        c.pauseCommand.addTarget { [weak self] _ in if self?.holding == true { self?.onCommand?(["cmd": "pause"]) }; return .success }
         c.togglePlayPauseCommand.isEnabled = true
         c.togglePlayPauseCommand.addTarget { [weak self] _ in
-            self?.onCommand?(["cmd": (self?.playing ?? false) ? "pause" : "play"]); return .success
+            if self?.holding == true { self?.onCommand?(["cmd": (self?.playing ?? false) ? "pause" : "play"]) }; return .success
         }
         c.nextTrackCommand.isEnabled = true
-        c.nextTrackCommand.addTarget { [weak self] _ in self?.onCommand?(["cmd": "next"]); return .success }
+        c.nextTrackCommand.addTarget { [weak self] _ in if self?.holding == true { self?.onCommand?(["cmd": "next"]) }; return .success }
         c.previousTrackCommand.isEnabled = true
-        c.previousTrackCommand.addTarget { [weak self] _ in self?.onCommand?(["cmd": "prev"]); return .success }
+        c.previousTrackCommand.addTarget { [weak self] _ in if self?.holding == true { self?.onCommand?(["cmd": "prev"]) }; return .success }
         c.skipForwardCommand.isEnabled = false
         c.skipBackwardCommand.isEnabled = false
         c.changePlaybackPositionCommand.isEnabled = true
         c.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            self?.onCommand?(["cmd": "seek", "position": e.positionTime]); return .success
+            if self?.holding == true { self?.onCommand?(["cmd": "seek", "position": e.positionTime]) }
+            return .success
         }
     }
 
@@ -57,6 +59,15 @@ final class NowPlayingBridge {
         MPNowPlayingInfoCenter.default().playbackState = playing ? .playing : .paused
         loadArtwork(artwork)
     }
+
+    /// En pausa YouTube suelta su sesión y iOS quita el reproductor al cabo de unos segundos: la app lo sostiene con los datos de Nsound.
+    func hold(title: String, artist: String, album: String, artwork: String, duration: Double, position: Double) {
+        holding = true
+        update(title: title, artist: artist, album: album, artwork: artwork, duration: duration, position: position, playing: false)
+    }
+
+    /// Vuelve a sonar: manda otra vez el reproductor de YouTube (no se borra nada: lo reescribe él).
+    func release() { holding = false }
 
     func updateState(position: Double, duration: Double, playing: Bool) {
         guard !info.isEmpty else { return }

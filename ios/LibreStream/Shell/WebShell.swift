@@ -137,6 +137,14 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
                               album: payload["album"] as? String ?? "", artwork: payload["artwork"] as? String ?? "",
                               duration: num(payload["duration"]), position: num(payload["position"]), playing: payload["playing"] as? Bool ?? true)
             replyHandler("ok", nil)
+        case "nowPlayingHold":
+            nowPlaying.hold(title: payload["title"] as? String ?? "", artist: payload["artist"] as? String ?? "",
+                            album: payload["album"] as? String ?? "", artwork: payload["artwork"] as? String ?? "",
+                            duration: num(payload["duration"]), position: num(payload["position"]))
+            replyHandler("ok", nil)
+        case "nowPlayingRelease":
+            nowPlaying.release()
+            replyHandler("ok", nil)
         case "nowPlayingState":
             nowPlaying.updateState(position: num(payload["position"]), duration: num(payload["duration"]), playing: payload["playing"] as? Bool ?? false)
             replyHandler("ok", nil)

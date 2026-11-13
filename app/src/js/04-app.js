@@ -619,7 +619,17 @@
   function mediaSessionTick(st) {
     if (S.now && S.msSent !== S.now.key && st.playing) { S.msSent = S.now.key; S.msAck = false; msFrame({ lsMedia: LS.mediaMeta(S.now) }); }   // el marco puede crearse después
     if (S.now && st.playing && !S.msAck && Date.now() - (S.msLast || 0) > (S.msAck ? 8000 : 2000)) msResend();   // sin confirmación: cada 2 s; con ella, cada 8 s (al bloquear y desbloquear iOS puede volver a poner «±10 s»)
-    if (mediaSessionTick.ps !== !!st.playing) { mediaSessionTick.ps = !!st.playing; msFrame({ lsMsState: st.playing ? 'playing' : 'paused' }); }
+    if (mediaSessionTick.ps !== !!st.playing) {
+      mediaSessionTick.ps = !!st.playing; msFrame({ lsMsState: st.playing ? 'playing' : 'paused' });
+      if (Native.platform === 'ios' && S.now) {
+        // En pausa YouTube suelta la sesión y iOS retira el reproductor a los pocos segundos: la app lo sostiene con los datos de Nsound
+        if (st.playing) Native.call('nowPlayingRelease', {}).catch(() => {});
+        else {
+          const m = LS.mediaMeta(S.now);
+          Native.call('nowPlayingHold', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: st.duration > 0 ? st.duration : S.duration, position: st.time || 0 }).catch(() => {});
+        }
+      }
+    }
     if (msOk) {
       try {
         navigator.mediaSession.playbackState = st.playing ? 'playing' : 'paused';
