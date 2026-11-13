@@ -542,14 +542,26 @@
   // ---------- Pantalla de bloqueo y controles del sistema ----------
   const msOk = typeof navigator !== 'undefined' && 'mediaSession' in navigator && typeof MediaMetadata !== 'undefined';
   let msPos = 0;
+  // La sesión multimedia que cuenta en iPhone es la del marco de YouTube (el que reproduce): se le envían los datos de Nsound
+  const msFrame = (msg) => { const f = document.querySelector('iframe#yt, #videoLayer iframe'); if (f && f.contentWindow) { try { f.contentWindow.postMessage(msg, '*'); } catch (e) { /* marco no listo */ } } };
+  window.addEventListener('message', (e) => {
+    const d = e.data, f = document.querySelector('iframe#yt, #videoLayer iframe');
+    if (!d || typeof d.lsMsAction !== 'string' || !f || e.source !== f.contentWindow) return;
+    if (d.lsMsAction === 'play') Player.play(); else if (d.lsMsAction === 'pause') Player.pause();
+    else if (d.lsMsAction === 'nexttrack') next(); else if (d.lsMsAction === 'previoustrack') prev();
+    else if (d.lsMsAction === 'seekto' && typeof d.seekTime === 'number') Player.seek(d.seekTime);
+  });
   function mediaSessionSet(it) {
     const m = LS.mediaMeta(it);
+    S.msSent = it.key; msFrame({ lsMedia: m });
     if (msOk) {
       try { navigator.mediaSession.metadata = new MediaMetadata(m); } catch (e) { /* formato no admitido */ }
     }
-    if (Native.platform !== 'web') Native.call('nowPlaying', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: it.duration || 0, position: 0, playing: true }).catch(() => {});
+    if (Native.platform !== 'web' && Native.platform !== 'ios') Native.call('nowPlaying', { title: m.title, artist: m.artist, album: m.album, artwork: m.artwork[0] ? m.artwork[0].src : '', duration: it.duration || 0, position: 0, playing: true }).catch(() => {});
   }
   function mediaSessionTick(st) {
+    if (S.now && S.msSent !== S.now.key && st.playing) { S.msSent = S.now.key; msFrame({ lsMedia: LS.mediaMeta(S.now) }); }   // el marco puede crearse después
+    if (mediaSessionTick.ps !== !!st.playing) { mediaSessionTick.ps = !!st.playing; msFrame({ lsMsState: st.playing ? 'playing' : 'paused' }); }
     if (msOk) {
       try {
         navigator.mediaSession.playbackState = st.playing ? 'playing' : 'paused';
@@ -557,7 +569,7 @@
         if (now - msPos > 1000) {
           msPos = now;
           const pos = LS.mediaPosition(st.time, st.duration > 0 ? st.duration : S.duration);
-          if (pos) navigator.mediaSession.setPositionState(pos);
+          if (pos) { navigator.mediaSession.setPositionState(pos); msFrame({ lsMsPos: pos }); }
         }
       } catch (e) { /* sin soporte */ }
     }
@@ -565,7 +577,7 @@
     // en la barra de tiempo, o cada 20 s para no desviarse.
     const nowMs = Date.now(), last = mediaSessionTick.last || { pos: 0, at: 0, playing: null };
     const expected = last.pos + (last.playing ? (nowMs - last.at) / 1000 : 0);
-    if (Native.platform !== 'web' && (last.playing !== !!st.playing || Math.abs((st.time || 0) - expected) > 2.5 || nowMs - last.at > 20000)) {
+    if (Native.platform !== 'web' && Native.platform !== 'ios' && (last.playing !== !!st.playing || Math.abs((st.time || 0) - expected) > 2.5 || nowMs - last.at > 20000)) {
       mediaSessionTick.last = { pos: st.time || 0, at: nowMs, playing: !!st.playing };
       Native.call('nowPlayingState', { position: st.time || 0, duration: st.duration > 0 ? st.duration : S.duration, playing: !!st.playing }).catch(() => {});
     }

@@ -8,18 +8,36 @@
   // Segundo plano: el reproductor de YouTube se pausa solo cuando la página pasa a «oculta» (pantalla bloqueada o app en segundo
   // plano). Aquí se le indica que sigue visible y se descartan los avisos de cambio de visibilidad, como hace la
   // «reproducción en segundo plano» de Brave. Solo afecta al marco de YouTube; la interfaz de Nsound no se toca.
-  // Pantalla de bloqueo y cascos: el reproductor de YouTube registra su propia sesión multimedia (con «±10 s» y sus datos) y puede
-  // mandar sobre la de Nsound. Aquí se desactiva solo dentro del marco de YouTube: en pantalla de bloqueo, cascos y Centro de control
-  // quedan únicamente los botones de Nsound (anterior, siguiente, play y pausa).
-  if (!window.__lsMsOff) {
-    window.__lsMsOff = true;
+  // Pantalla de bloqueo, Centro de control y cascos: iOS usa la sesión multimedia del marco que reproduce (el de YouTube), que por
+  // defecto trae su título de página, «±10 s» y ninguna portada. Aquí se ignoran las llamadas del propio YouTube y se usa la sesión
+  // con los datos y botones de Nsound: la página los envía por postMessage y los botones vuelven a ella igual.
+  if (!window.__lsMsOwn) {
+    window.__lsMsOwn = true;
     try {
-      const P = window.MediaSession && window.MediaSession.prototype;
-      if (P) {
-        P.setActionHandler = function () { /* ignorado */ };
-        Object.defineProperty(P, 'metadata', { configurable: true, get: () => null, set: () => {} });
-        Object.defineProperty(P, 'playbackState', { configurable: true, get: () => 'none', set: () => {} });
-        if (typeof P.setPositionState === 'function') P.setPositionState = function () { /* ignorado */ };
+      const P = window.MediaSession && window.MediaSession.prototype, ms = navigator.mediaSession;
+      if (P && ms) {
+        const origSet = P.setActionHandler, origPos = P.setPositionState;
+        const md = Object.getOwnPropertyDescriptor(P, 'metadata'), ps = Object.getOwnPropertyDescriptor(P, 'playbackState');
+        const toParent = (m) => { try { window.parent.postMessage(m, '*'); } catch (e) { /* sin página padre */ } };
+        const handlers = () => {
+          for (const a of ['play', 'pause', 'previoustrack', 'nexttrack']) { try { origSet.call(ms, a, () => toParent({ lsMsAction: a })); } catch (e) { /* no admitida */ } }
+          try { origSet.call(ms, 'seekto', (d) => toParent({ lsMsAction: 'seekto', seekTime: d && d.seekTime })); } catch (e) { /* no admitida */ }
+          for (const a of ['seekbackward', 'seekforward']) { try { origSet.call(ms, a, null); } catch (e) { /* no admitida */ } }
+        };
+        P.setActionHandler = function () { /* las de YouTube se ignoran */ };
+        P.setPositionState = function () { /* ídem */ };
+        if (md) Object.defineProperty(P, 'metadata', { configurable: true, get() { return md.get.call(this); }, set() { /* ignorado */ } });
+        if (ps) Object.defineProperty(P, 'playbackState', { configurable: true, get() { return ps.get.call(this); }, set() { /* ignorado */ } });
+        handlers();
+        window.addEventListener('message', (e) => {
+          const d = e.data;
+          if (!d || typeof d !== 'object') return;
+          try {
+            if (d.lsMedia && md) { md.set.call(ms, new MediaMetadata(d.lsMedia)); handlers(); }
+            if (d.lsMsState && ps) ps.set.call(ms, d.lsMsState);
+            if (d.lsMsPos) origPos.call(ms, d.lsMsPos);
+          } catch (err) { /* formato no admitido */ }
+        });
       }
     } catch (e) { /* si no se puede, queda como antes */ }
   }
