@@ -597,6 +597,7 @@
   Native.onEvent((e) => {
     if (!e || e.type !== 'remote') return;
     if (e.cmd === 'play') Player.play(); else if (e.cmd === 'pause') Player.pause();
+    else if (e.cmd === 'resume') { if (S.now && !S.userPause && !S.playing) Player.play(); }   // al salir o bloquear: solo reanuda si no la pausó el usuario
     else if (e.cmd === 'next') next(); else if (e.cmd === 'prev') prev();
     else if (e.cmd === 'seek' && typeof e.position === 'number') Player.seek(e.position);
   });
