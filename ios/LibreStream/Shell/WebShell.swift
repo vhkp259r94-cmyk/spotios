@@ -162,7 +162,7 @@ final class ShellCoordinator: NSObject, WKScriptMessageHandlerWithReply, WKURLSc
         })
         // Al salir de la app, bloquear o desbloquear, iOS puede pausar el vídeo de YouTube: se pide a la interfaz que reanude (solo si sonaba y no la pausó el usuario)
         let resumeSoon: () -> Void = { [weak self] in
-            for delay in [0.4, 1.5, 3.5, 6.0] { DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self?.sendRemote(["cmd": "resume"]) } }
+            for delay in [0.1, 0.25, 0.4, 0.6, 0.9, 1.3, 2.0, 3.0, 5.0] { DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self?.sendRemote(["cmd": "resume"]) } }
         }
         audioObservers.append(nc.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { _ in resumeSoon() })
         audioObservers.append(nc.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in resumeSoon() })

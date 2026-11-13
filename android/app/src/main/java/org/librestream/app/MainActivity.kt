@@ -190,7 +190,7 @@ class MainActivity : Activity() {
     /** Al salir, apagar la pantalla o desbloquear, el sistema puede pausar el reproductor de YouTube: se pide a la interfaz que reanude (solo si sonaba y no la pausó el usuario). */
     private fun resumeSoon() {
         lifecycleHandler.removeCallbacksAndMessages(null)
-        for (delay in longArrayOf(400, 1500, 3500, 6000)) {
+        for (delay in longArrayOf(100, 250, 400, 600, 900, 1300, 2000, 3000, 5000)) {
             lifecycleHandler.postDelayed({
                 if (::web.isInitialized) web.evaluateJavascript("window.__nativeEvent && window.__nativeEvent({type:'remote',cmd:'resume'})", null)
             }, delay)
