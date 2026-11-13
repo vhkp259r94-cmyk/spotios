@@ -228,6 +228,7 @@ public sealed partial class MainWindow : Window
         {
             SavedSection.Visibility = YouTubeSection.Visibility = Visibility.Collapsed;
             SavedEmpty.Visibility = Visibility.Collapsed;
+            ArtistsSection.Visibility = AlbumsSection.Visibility = Visibility.Collapsed;
             Hero.Visibility = Visibility.Collapsed;
             _featured = null;
             if (_kind == "downloads") BuildDownloads(); else RefreshSettingsUi();
@@ -268,6 +269,9 @@ public sealed partial class MainWindow : Window
             : "Aún no has guardado nada. Reproduce algo y pulsa el corazón de la barra inferior.";
         SavedEmpty.Visibility = Vis(library && _saved.Count == 0);
         YouTubeSection.Visibility = Vis(showYouTube);
+        ArtistsSection.Visibility = Vis(home);
+        if (home) BuildArtistsRow();
+        AlbumsSection.Visibility = Vis(AlbumsVisible(raw) || (_kind == "track" && _albumsArtist.Length > 0 && ArtistCatalog.Fold(raw).StartsWith(_albumsArtist, StringComparison.Ordinal) && AlbumsInfo.Text.Length > 0));
 
         // Anuncio de lanzamientos nuevos: solo en Inicio y sin búsqueda
         _featured = home && _releases.Count > 0 ? _releases[_heroIndex % _releases.Count] : null;
@@ -330,6 +334,8 @@ public sealed partial class MainWindow : Window
         var scope = Scope;
         if (kind is "library" or "settings" or "downloads" || kind.StartsWith("pl:", StringComparison.Ordinal) || typed.Length == 1) return;
         if (kind == "video" && typed.Length == 0) { _ = LoadShelvesAsync(); return; }
+        if (kind == "track" && typed.Length > 1) _ = LoadDiscographyAsync(typed);
+        else if (kind == "track" && typed.Length == 0) { _albumsArtist = ""; AlbumsRow.Children.Clear(); AlbumsSection.Visibility = Visibility.Collapsed; }
 
         // Sin texto: Música muestra el género elegido e Inicio los éxitos del momento
         var hits = $"official music video {DateTime.Now.Year}";
@@ -373,6 +379,128 @@ public sealed partial class MainWindow : Window
         finally
         {
             if (_searchCts == cts) YouTubeBusy.IsActive = false;
+        }
+    }
+
+    // ===================== Artistas de la semana y discografía =====================
+
+    private string _albumsArtist = "";          // artista (sin tildes ni mayúsculas) cuya discografía se muestra
+    private bool _artistsBuilt, _keepAlbums;
+    private CancellationTokenSource? _albumsCts;
+
+    private bool AlbumsVisible(string raw)
+    {
+        var f = ArtistCatalog.Fold(raw);
+        return _kind == "track" && _albumsArtist.Length > 0 && f.StartsWith(_albumsArtist, StringComparison.Ordinal) && AlbumsRow.Children.Count > 0;
+    }
+
+    private void BuildArtistsRow()
+    {
+        if (_artistsBuilt) return;
+        _artistsBuilt = true;
+        foreach (var name in ArtistCatalog.WeeklyArtists(DateTime.UtcNow))
+        {
+            var h = Math.Abs(name.Aggregate(17, (a, c) => a * 31 + c)) % 360;
+            var circle = new Border
+            {
+                Width = 84, Height = 84, CornerRadius = new CornerRadius(42),
+                Background = new SolidColorBrush(HsvToColor(h, 0.62, 0.78)),
+                Child = new TextBlock { Text = name[..1], FontSize = 32, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            };
+            var label = new TextBlock { Text = name, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 96, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center };
+            var button = new Button
+            {
+                Tag = name, Padding = new Thickness(6), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
+                Content = new StackPanel { Spacing = 6, Children = { circle, label } },
+            };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, $"Artista {name}: ver canciones y discografía");
+            button.Click += Artist_Click;
+            ArtistsRow.Children.Add(button);
+        }
+    }
+
+    private static Windows.UI.Color HsvToColor(double hue, double s, double v)
+    {
+        var c = v * s; var x = c * (1 - Math.Abs(hue / 60 % 2 - 1)); var m = v - c;
+        var (r, g, b) = hue < 60 ? (c, x, 0d) : hue < 120 ? (x, c, 0d) : hue < 180 ? (0d, c, x) : hue < 240 ? (0d, x, c) : hue < 300 ? (x, 0d, c) : (c, 0d, x);
+        return Windows.UI.Color.FromArgb(255, (byte)((r + m) * 255), (byte)((g + m) * 255), (byte)((b + m) * 255));
+    }
+
+    /// <summary>Pulsar un artista lleva a Música con sus canciones y su discografía.</summary>
+    private void Artist_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not string name) return;
+        Search.Text = name;
+        var music = Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == "track");
+        if (music is not null) Nav.SelectedItem = music;
+    }
+
+    /// <summary>Un disco de la discografía: se buscan sus canciones (el artista sigue en la búsqueda, así la discografía no cambia).</summary>
+    private void Album_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not string query) return;
+        _keepAlbums = true;
+        Search.Text = query;
+        _searchDelay.Stop();
+        _ = SearchYouTubeAsync(query);
+    }
+
+    private async Task LoadDiscographyAsync(string typed)
+    {
+        var folded = ArtistCatalog.Fold(typed);
+        if (folded.Length < 2) return;
+        if (folded == _albumsArtist) return;
+        if (_keepAlbums && _albumsArtist.Length > 0 && folded.StartsWith(_albumsArtist, StringComparison.Ordinal)) return;   // «artista disco»: se mantiene la discografía
+        _keepAlbums = false;
+        _albumsCts?.Cancel();
+        var cts = _albumsCts = new CancellationTokenSource();
+        _albumsArtist = folded;
+        AlbumsRow.Children.Clear();
+        AlbumsTitle.Text = $"Discografía de {typed}";
+        AlbumsInfo.Text = "Buscando discos…";
+        AlbumsSection.Visibility = Visibility.Visible;
+        try
+        {
+            var albums = await ArtistCatalog.FetchDiscographyAsync(_http, typed, cts.Token);
+            if (cts.IsCancellationRequested) return;
+            foreach (var album in albums)
+            {
+                var image = new Image { Width = 140, Height = 140, Stretch = Stretch.UniformToFill };
+                var bitmap = new BitmapImage(new Uri(album.CoverUrl));
+                bitmap.ImageFailed += (_, _) => image.Source = null;   // sin portada: queda el fondo de color
+                image.Source = bitmap;
+                var tile = new Border
+                {
+                    Width = 140, Height = 140, CornerRadius = new CornerRadius(10), Child = image,
+                    Background = new SolidColorBrush(HsvToColor(Math.Abs(album.Id.GetHashCode()) % 360, 0.45, 0.5)),
+                };
+                var details = string.Join(" · ", new[] { album.Year, album.Type == "EP" ? "EP" : "Álbum" }.Where(x => x.Length > 0));
+                var button = new Button
+                {
+                    Tag = $"{typed} {album.Title}", Padding = new Thickness(4), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
+                    Content = new StackPanel
+                    {
+                        Spacing = 4, Width = 140,
+                        Children =
+                        {
+                            tile,
+                            new TextBlock { Text = album.Title, MaxLines = 2, TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.CharacterEllipsis, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
+                            new TextBlock { Text = details, Opacity = 0.7, FontSize = 12 },
+                        },
+                    },
+                };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, $"{album.Title}, {details}: buscar canciones");
+                button.Click += Album_Click;
+                AlbumsRow.Children.Add(button);
+            }
+            AlbumsInfo.Text = albums.Count == 0 ? "Sin ficha en MusicBrainz (artista pequeño o nuevo): aquí solo se muestran sus canciones." : "";
+            AlbumsSection.Visibility = Vis(AlbumsVisible(Search.Text ?? "") || albums.Count == 0 && _kind == "track");
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            App.LogOnce("Discografía", ex);
+            if (_albumsCts == cts) AlbumsInfo.Text = "No se pudo cargar la discografía (sin conexión con MusicBrainz).";
         }
     }
 

@@ -203,6 +203,13 @@
                         </Grid>
 
                         <TextBlock x:Name="Status" Foreground="#FF8A80" TextWrapping="Wrap" Visibility="Collapsed" />
+                        <StackPanel x:Name="AlbumsSection" Spacing="6" Visibility="Collapsed">
+                            <TextBlock x:Name="AlbumsTitle" Text="Discografía" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
+                            <TextBlock x:Name="AlbumsInfo" Opacity="0.7" Margin="8,0,0,0" TextWrapping="Wrap" />
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalScrollMode="Enabled">
+                                <StackPanel x:Name="AlbumsRow" Orientation="Horizontal" Spacing="12" Margin="8,0,0,8" />
+                            </ScrollViewer>
+                        </StackPanel>
                         <StackPanel x:Name="YouTubeSection" Spacing="6" Visibility="Collapsed">
                             <StackPanel Orientation="Horizontal" Spacing="10" Margin="8,8,0,0">
                                 <TextBlock x:Name="YouTubeTitle" Text="YouTube" Style="{StaticResource SubtitleTextBlockStyle}" />
@@ -214,6 +221,13 @@
                                     <UniformGridLayout MinColumnSpacing="4" MinRowSpacing="8" />
                                 </ItemsRepeater.Layout>
                             </ItemsRepeater>
+                        </StackPanel>
+
+                        <StackPanel x:Name="ArtistsSection" Spacing="6" Visibility="Collapsed">
+                            <TextBlock Text="Artistas de la semana" Style="{StaticResource SubtitleTextBlockStyle}" Margin="8,8,0,0" />
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalScrollMode="Enabled">
+                                <StackPanel x:Name="ArtistsRow" Orientation="Horizontal" Spacing="14" Margin="8,0,0,8" />
+                            </ScrollViewer>
                         </StackPanel>
 
                         <StackPanel x:Name="ShelvesHost" Spacing="14" Visibility="Collapsed">
