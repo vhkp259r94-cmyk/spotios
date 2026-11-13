@@ -36,11 +36,15 @@ jobs:
         timeout-minutes: 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 30
           arch: x86_64
-          target: google_apis
+          target: default
           profile: pixel_6
           disable-animations: true
+          force-avd-creation: true
+          ram-size: 3072M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash ci/emu-test.sh
       - uses: actions/upload-artifact@v4
         if: always()
