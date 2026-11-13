@@ -204,9 +204,9 @@
     v.innerHTML = `<h1>${greet}</h1>${chips([['all', 'Todo'], ['track', 'Música'], ['video', 'Vídeos']], sc, 'scope')}
       ${q ? `<p class="hint">${sc === 'track' ? 'Canciones' : sc === 'video' ? 'Vídeos' : 'Resultados'} para «${esc(q)}».</p>` : ''}
       <section id="hero" class="hero" hidden></section>
-      ${q ? '' : topArtistsHtml()}
       <section><h2 id="hitsTitle">${q ? 'Resultados en YouTube' : sc === 'track' ? 'Canciones del momento' : sc === 'video' ? 'Videoclips del momento' : 'Éxitos del momento'}</h2>
       <div id="hits">${skeleton()}</div></section>
+      ${q ? '' : topArtistsHtml()}
       <section id="recentRow" hidden><h2>Seguir escuchando</h2><div id="recentGrid"></div></section>
       <section id="savedRow" hidden><h2>De tu biblioteca</h2><div id="savedGrid"></div></section>`;
     if (!q) { renderHero(); setTimeout(() => loadReleases(id), 1500); }
